@@ -2075,6 +2075,10 @@ const InstallmentTracker = () => {
 
   const createSchedule = async () => {
     if (!selectedSale) return;
+    if (!emiForm.startDate) {
+      alert("Please select a first installment date.");
+      return;
+    }
     setSaving(true);
     const months = parseInt(emiForm.months) || 12;
     const startDate = new Date(emiForm.startDate);
@@ -2265,8 +2269,8 @@ const DocumentVault = () => {
       supabase.from("vehicles").select("id,make,model,year").order("created_at", { ascending: false }),
       supabase.from("vehicle_documents").select("*").order("uploaded_at", { ascending: false }),
     ]);
-    setVehicles(v.data || []);
-    setDocuments(d.data || []);
+    setVehicles((v.data as any) || []);
+    setDocuments((d.data as any) || []);
     setLoading(false);
   }, []);
 
