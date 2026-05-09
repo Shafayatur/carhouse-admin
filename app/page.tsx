@@ -1563,7 +1563,7 @@ const Analytics = () => {
 ══════════════════════════════════════════════════════════════ */
 const NAV = [
   { id: "dashboard", label: "Dashboard", icon: "◈" },
-  { id: "analytics", label: "Analytics", icon: "📊" },
+  { id: "analytics", label: "Analytics", icon: "▥" },
   { id: "inventory", label: "Inventory", icon: "◻" },
   { id: "sales", label: "Sales", icon: "◇" },
   { id: "customers", label: "Customers", icon: "○" },
