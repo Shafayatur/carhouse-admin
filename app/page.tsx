@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
@@ -1559,6 +1559,829 @@ const Analytics = () => {
   );
 };
 /* ══════════════════════════════════════════════════════════════
+   LANDED COST CALCULATOR
+══════════════════════════════════════════════════════════════ */
+const LandedCost = () => {
+  const [form, setForm] = useState({
+    auctionPrice: "", auctionFee: "", inlandTransport: "",
+    oceanFreight: "", insurance: "", customsDuty: "",
+    cfAgentFee: "", portCharges: "", prep: "", other: "",
+  });
+  const [result, setResult] = useState<any>(null);
+  const [sellingPrice, setSellingPrice] = useState("");
+
+  const f = (k: string) => parseFloat((form as any)[k] || "0") || 0;
+  const fmtN = (n: number) => "৳ " + Math.round(n).toLocaleString("en-BD");
+
+  const calculate = () => {
+    const totalCost = f("auctionPrice") + f("auctionFee") + f("inlandTransport") +
+      f("oceanFreight") + f("insurance") + f("customsDuty") +
+      f("cfAgentFee") + f("portCharges") + f("prep") + f("other");
+    const suggested = Math.round(totalCost * 1.25);
+    const minimum = Math.round(totalCost * 1.08);
+    const customSelling = parseFloat(sellingPrice) || 0;
+    const customProfit = customSelling - totalCost;
+    const customMargin = totalCost > 0 ? ((customProfit / totalCost) * 100).toFixed(1) : "0";
+    setResult({ totalCost, suggested, minimum, profit25: suggested - totalCost, customSelling, customProfit, customMargin });
+  };
+
+  const costFields: [string, string][] = [
+    ["Auction Price", "auctionPrice"], ["Auction Fee", "auctionFee"],
+    ["Inland Transport (Origin)", "inlandTransport"], ["Ocean Freight", "oceanFreight"],
+    ["Marine Insurance", "insurance"], ["Customs Duty", "customsDuty"],
+    ["C&F Agent Fee", "cfAgentFee"], ["Port Charges", "portCharges"],
+    ["Showroom Preparation", "prep"], ["Other Costs", "other"],
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-light text-white tracking-wide">Landed Cost Calculator</h1>
+        <p className="text-zinc-500 text-sm mt-1">Calculate total import cost and optimal selling price</p>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-[#0a0a0a] border border-white/10 p-6 rounded-lg">
+          <p className="text-xs font-semibold tracking-widest uppercase text-zinc-500 mb-5">Cost Inputs (৳)</p>
+          <div className="grid grid-cols-2 gap-4">
+            {costFields.map(([label, key]) => (
+              <div key={key}>
+                <label className="block text-[10px] font-semibold tracking-[0.2em] uppercase text-zinc-500 mb-1">{label}</label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={(form as any)[key]}
+                  onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
+                  className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2 outline-none focus:border-white/40 placeholder-zinc-700"
+                />
+              </div>
+            ))}
+          </div>
+          <div className="mt-5 pt-5 border-t border-white/10">
+            <label className="block text-[10px] font-semibold tracking-[0.2em] uppercase text-zinc-500 mb-1">Your Target Selling Price (৳)</label>
+            <input
+              type="number"
+              placeholder="Enter your price to see margin"
+              value={sellingPrice}
+              onChange={e => setSellingPrice(e.target.value)}
+              className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2 outline-none focus:border-white/40 placeholder-zinc-700"
+            />
+          </div>
+          <button
+            onClick={calculate}
+            className="w-full mt-4 py-3 bg-white text-black text-xs font-semibold tracking-[0.2em] uppercase hover:bg-zinc-200 transition-colors"
+          >
+            Calculate
+          </button>
+        </div>
+
+        {result ? (
+          <div className="space-y-4">
+            <div className="bg-[#0a0a0a] border border-white/10 p-6 rounded-lg">
+              <p className="text-xs font-semibold tracking-widest uppercase text-zinc-500 mb-5">Cost Breakdown</p>
+              {costFields.map(([label, key]) => f(key) > 0 && (
+                <div key={key} className="flex justify-between py-2 border-b border-white/5 text-sm">
+                  <span className="text-zinc-400">{label}</span>
+                  <span className="text-white">{fmtN(f(key))}</span>
+                </div>
+              ))}
+              <div className="flex justify-between pt-4 mt-2">
+                <span className="text-white font-semibold">Total Landed Cost</span>
+                <span className="text-white font-bold text-lg">{fmtN(result.totalCost)}</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-[#0a0a0a] border border-white/10 p-4 rounded-lg text-center">
+                <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-2">Minimum Price</p>
+                <p className="text-lg font-semibold text-red-400">{fmtN(result.minimum)}</p>
+                <p className="text-[10px] text-zinc-600 mt-1">8% margin</p>
+              </div>
+              <div className="bg-[#0a0a0a] border border-yellow-500/30 p-4 rounded-lg text-center">
+                <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-2">Suggested Price</p>
+                <p className="text-lg font-semibold text-yellow-400">{fmtN(result.suggested)}</p>
+                <p className="text-[10px] text-zinc-600 mt-1">25% margin</p>
+              </div>
+              <div className="bg-[#0a0a0a] border border-green-500/30 p-4 rounded-lg text-center">
+                <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-2">Profit @ 25%</p>
+                <p className="text-lg font-semibold text-green-400">{fmtN(result.profit25)}</p>
+                <p className="text-[10px] text-zinc-600 mt-1">on suggested</p>
+              </div>
+            </div>
+
+            {result.customSelling > 0 && (
+              <div className={`border p-5 rounded-lg ${result.customProfit >= 0 ? "bg-green-500/5 border-green-500/20" : "bg-red-500/5 border-red-500/20"}`}>
+                <p className="text-xs uppercase tracking-widest text-zinc-500 mb-3">Your Price Analysis</p>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <p className="text-[10px] text-zinc-500 mb-1">Selling Price</p>
+                    <p className="text-white font-semibold">{fmtN(result.customSelling)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-zinc-500 mb-1">Profit / Loss</p>
+                    <p className={`font-semibold ${result.customProfit >= 0 ? "text-green-400" : "text-red-400"}`}>{fmtN(result.customProfit)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-zinc-500 mb-1">Margin</p>
+                    <p className={`font-semibold ${parseFloat(result.customMargin) >= 15 ? "text-green-400" : parseFloat(result.customMargin) >= 8 ? "text-yellow-400" : "text-red-400"}`}>{result.customMargin}%</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="bg-[#0a0a0a] border border-white/10 rounded-lg flex items-center justify-center text-zinc-600 text-sm" style={{ minHeight: 300 }}>
+            Fill in costs and click Calculate
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/* ══════════════════════════════════════════════════════════════
+   NBR DUTY CALCULATOR
+══════════════════════════════════════════════════════════════ */
+const NBRCalculator = () => {
+  const [cifValue, setCifValue] = useState("");
+  const [engineCC, setEngineCC] = useState("1600");
+  const [vehicleAge, setVehicleAge] = useState("0");
+  const [result, setResult] = useState<any>(null);
+
+  const calculate = () => {
+    const cif = parseFloat(cifValue) || 0;
+    const cc = parseInt(engineCC) || 1600;
+    const age = parseInt(vehicleAge) || 0;
+
+    // Bangladesh NBR duty rates (approximate, 2024)
+    let cd = 0.25; // Customs Duty base
+    let sd = 0;    // Supplementary Duty
+    let rd = 0;    // Regulatory Duty
+
+    // Supplementary duty based on engine CC
+    if (cc <= 1600) sd = 0.45;
+    else if (cc <= 2000) sd = 1.00;
+    else if (cc <= 3000) sd = 3.00;
+    else if (cc <= 4000) sd = 5.00;
+    else sd = 5.00;
+
+    // Regulatory duty for reconditioned
+    if (age > 0 && age <= 3) rd = 0.03;
+    else if (age > 3 && age <= 5) rd = 0.05;
+    else if (age > 5) rd = 0.10;
+
+    const customsDuty = cif * cd;
+    const regulatoryDuty = cif * rd;
+    const suppDutyBase = cif + customsDuty + regulatoryDuty;
+    const supplementaryDuty = suppDutyBase * sd;
+    const vatBase = suppDutyBase + supplementaryDuty;
+    const vat = vatBase * 0.15;
+    const aitBase = cif;
+    const ait = aitBase * 0.05;
+    const total = customsDuty + regulatoryDuty + supplementaryDuty + vat + ait;
+    const totalLanded = cif + total;
+    const effectiveRate = cif > 0 ? ((total / cif) * 100).toFixed(1) : "0";
+
+    setResult({ cif, customsDuty, regulatoryDuty, supplementaryDuty, vat, ait, total, totalLanded, effectiveRate });
+  };
+
+  const fmtN = (n: number) => "৳ " + Math.round(n).toLocaleString("en-BD");
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-light text-white tracking-wide">NBR Duty Calculator</h1>
+        <p className="text-zinc-500 text-sm mt-1">Bangladesh National Board of Revenue import duty estimator</p>
+      </div>
+      <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg px-5 py-3">
+        <p className="text-yellow-400 text-xs">⚠ These rates are approximate based on NBR 2024 schedule. Always confirm final duties with your C&F agent before importing.</p>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-[#0a0a0a] border border-white/10 p-6 rounded-lg">
+          <p className="text-xs font-semibold tracking-widest uppercase text-zinc-500 mb-5">Vehicle Details</p>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-[10px] font-semibold tracking-[0.2em] uppercase text-zinc-500 mb-1">CIF Value (৳)</label>
+              <input type="number" placeholder="Cost + Insurance + Freight in BDT" value={cifValue} onChange={e => setCifValue(e.target.value)}
+                className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2.5 outline-none focus:border-white/40 placeholder-zinc-700" />
+              <p className="text-zinc-600 text-xs mt-1">Convert foreign currency to BDT at current rate</p>
+            </div>
+            <div>
+              <label className="block text-[10px] font-semibold tracking-[0.2em] uppercase text-zinc-500 mb-1">Engine Displacement (CC)</label>
+              <select value={engineCC} onChange={e => setEngineCC(e.target.value)}
+                className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2.5 outline-none focus:border-white/40 appearance-none">
+                <option value="1000">Up to 1000cc</option>
+                <option value="1600">1001–1600cc (SD: 45%)</option>
+                <option value="2000">1601–2000cc (SD: 100%)</option>
+                <option value="3000">2001–3000cc (SD: 300%)</option>
+                <option value="4000">3001–4000cc (SD: 500%)</option>
+                <option value="5000">Above 4000cc (SD: 500%)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] font-semibold tracking-[0.2em] uppercase text-zinc-500 mb-1">Vehicle Age (Years)</label>
+              <select value={vehicleAge} onChange={e => setVehicleAge(e.target.value)}
+                className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2.5 outline-none focus:border-white/40 appearance-none">
+                <option value="0">Brand New (0 years)</option>
+                <option value="1">1 Year Old (RD: 3%)</option>
+                <option value="2">2 Years Old (RD: 3%)</option>
+                <option value="3">3 Years Old (RD: 3%)</option>
+                <option value="4">4 Years Old (RD: 5%)</option>
+                <option value="5">5 Years Old (RD: 5%)</option>
+                <option value="6">6+ Years Old (RD: 10%)</option>
+              </select>
+            </div>
+            <button onClick={calculate}
+              className="w-full py-3 bg-white text-black text-xs font-semibold tracking-[0.2em] uppercase hover:bg-zinc-200 transition-colors mt-2">
+              Calculate Duties
+            </button>
+          </div>
+        </div>
+
+        {result ? (
+          <div className="space-y-4">
+            <div className="bg-[#0a0a0a] border border-white/10 p-6 rounded-lg">
+              <p className="text-xs font-semibold tracking-widest uppercase text-zinc-500 mb-4">Duty Breakdown</p>
+              {[
+                ["CIF Value", result.cif, "base"],
+                ["Customs Duty (CD — 25%)", result.customsDuty, "tax"],
+                ["Regulatory Duty (RD)", result.regulatoryDuty, "tax"],
+                ["Supplementary Duty (SD)", result.supplementaryDuty, "tax"],
+                ["VAT (15%)", result.vat, "tax"],
+                ["Advance Income Tax (AIT 5%)", result.ait, "tax"],
+              ].map(([label, val, type]) => (
+                <div key={label as string} className="flex justify-between py-2.5 border-b border-white/5 text-sm">
+                  <span className={type === "tax" ? "text-zinc-400" : "text-white"}>{label as string}</span>
+                  <span className={type === "tax" ? "text-red-400" : "text-white"}>{fmtN(val as number)}</span>
+                </div>
+              ))}
+              <div className="flex justify-between pt-4 mt-2 border-t border-white/20">
+                <span className="text-white font-semibold">Total Taxes & Duties</span>
+                <span className="text-red-400 font-bold text-lg">{fmtN(result.total)}</span>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-[#0a0a0a] border border-white/10 p-4 rounded-lg text-center">
+                <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-2">Total Landed Cost</p>
+                <p className="text-xl font-bold text-white">{fmtN(result.totalLanded)}</p>
+                <p className="text-[10px] text-zinc-600 mt-1">CIF + All Duties</p>
+              </div>
+              <div className="bg-[#0a0a0a] border border-red-500/20 p-4 rounded-lg text-center">
+                <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-2">Effective Tax Rate</p>
+                <p className="text-xl font-bold text-red-400">{result.effectiveRate}%</p>
+                <p className="text-[10px] text-zinc-600 mt-1">of CIF value</p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-[#0a0a0a] border border-white/10 rounded-lg flex items-center justify-center text-zinc-600 text-sm" style={{ minHeight: 300 }}>
+            Enter CIF value and click Calculate
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/* ══════════════════════════════════════════════════════════════
+   INVOICE GENERATOR
+══════════════════════════════════════════════════════════════ */
+const InvoiceGenerator = () => {
+  const [sales, setSales] = useState<Sale[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedSale, setSelectedSale] = useState<string>("");
+  const [invoiceType, setInvoiceType] = useState<"invoice" | "receipt">("invoice");
+
+  useEffect(() => {
+    Promise.all([
+      supabase.from("sales").select("*").order("created_at", { ascending: false }),
+      supabase.from("vehicles").select("*"),
+      supabase.from("customers").select("*"),
+    ]).then(([s, v, c]) => {
+      setSales(s.data || []);
+      setVehicles(v.data || []);
+      setCustomers(c.data || []);
+      setLoading(false);
+    });
+  }, []);
+
+  const sale = sales.find(s => s.id === selectedSale);
+  const car = sale ? vehicles.find(v => v.id === sale.car_id) : null;
+  const customer = sale ? customers.find(c => c.id === sale.customer_id) : null;
+  const fmtN = (n: number) => "৳ " + Math.round(n || 0).toLocaleString("en-BD");
+
+  const printInvoice = () => {
+    const printContent = document.getElementById("invoice-preview");
+    if (!printContent) return;
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(`
+      <html><head><title>${invoiceType === "invoice" ? "Invoice" : "Money Receipt"} - ${sale?.id}</title>
+      <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 40px; color: #111; background: white; }
+        .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; border-bottom: 3px solid #111; padding-bottom: 24px; }
+        .company-name { font-size: 28px; font-weight: 700; letter-spacing: 2px; }
+        .company-sub { font-size: 12px; color: #666; margin-top: 4px; letter-spacing: 1px; text-transform: uppercase; }
+        .doc-title { font-size: 22px; font-weight: 300; text-align: right; color: #333; letter-spacing: 3px; text-transform: uppercase; }
+        .doc-id { font-size: 14px; color: #666; text-align: right; margin-top: 4px; }
+        .section { margin-bottom: 28px; }
+        .section-title { font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #999; margin-bottom: 8px; }
+        .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+        .label { font-size: 11px; color: #999; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 1px; }
+        .value { font-size: 15px; color: #111; font-weight: 500; }
+        table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+        th { background: #111; color: white; padding: 12px 16px; text-align: left; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
+        td { padding: 14px 16px; border-bottom: 1px solid #eee; font-size: 14px; }
+        .total-row td { font-weight: 700; font-size: 16px; border-top: 2px solid #111; border-bottom: none; }
+        .footer { margin-top: 60px; display: grid; grid-template-columns: 1fr 1fr; gap: 60px; }
+        .sig-line { border-top: 1px solid #333; padding-top: 8px; font-size: 11px; color: #999; text-align: center; text-transform: uppercase; letter-spacing: 1px; }
+        .gold { color: #c9a84c; }
+      </style></head><body>
+      <div class="header">
+        <div>
+          <div class="company-name">CAR HOUSE</div>
+          <div class="company-sub">Imports Ltd. &nbsp;·&nbsp; Bangladesh's Premier Luxury Importer</div>
+        </div>
+        <div>
+          <div class="doc-title">${invoiceType === "invoice" ? "Sales Invoice" : "Money Receipt"}</div>
+          <div class="doc-id">${sale?.id} &nbsp;·&nbsp; ${sale?.sale_date}</div>
+        </div>
+      </div>
+      <div class="grid2 section">
+        <div>
+          <div class="section-title">Bill To</div>
+          <div class="value">${customer?.name || "—"}</div>
+          <div class="label" style="margin-top:4px">${customer?.phone || ""}</div>
+          <div class="label">${customer?.email || ""}</div>
+          <div class="label">${customer?.address || ""}</div>
+        </div>
+        <div>
+          <div class="section-title">Vehicle Details</div>
+          <div class="value">${car?.make || ""} ${car?.model || ""}</div>
+          <div class="label" style="margin-top:4px">Year: ${car?.year || ""}</div>
+          <div class="label">Color: ${car?.color || ""}</div>
+          <div class="label">Chassis: ${car?.chassis_no || ""}</div>
+          <div class="label">Origin: ${car?.origin || ""}</div>
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>Description</th><th>Details</th><th style="text-align:right">Amount</th></tr></thead>
+        <tbody>
+          <tr><td>${car?.make} ${car?.model} (${car?.year})</td><td>${car?.color} · ${car?.engine_cc}cc · ${car?.transmission}</td><td style="text-align:right">${fmtN(sale?.sale_price || 0)}</td></tr>
+          ${(sale?.discount || 0) > 0 ? `<tr><td>Discount</td><td>Special discount</td><td style="text-align:right;color:#c0392b">- ${fmtN(sale?.discount || 0)}</td></tr>` : ""}
+          <tr><td>Down Payment Received</td><td>${sale?.payment_method}</td><td style="text-align:right;color:#27ae60">${fmtN(sale?.down_payment || 0)}</td></tr>
+          <tr class="total-row"><td colspan="2">Total Sale Price</td><td style="text-align:right">${fmtN(sale?.sale_price || 0)}</td></tr>
+          <tr class="total-row"><td colspan="2">Balance Due</td><td style="text-align:right;color:${((sale?.sale_price || 0) - (sale?.down_payment || 0)) > 0 ? "#c0392b" : "#27ae60"}">${fmtN((sale?.sale_price || 0) - (sale?.down_payment || 0))}</td></tr>
+        </tbody>
+      </table>
+      ${sale?.notes ? `<div class="section" style="margin-top:24px"><div class="section-title">Notes</div><div style="font-size:13px;color:#666">${sale.notes}</div></div>` : ""}
+      <div class="footer">
+        <div><div class="sig-line">Customer Signature</div></div>
+        <div><div class="sig-line">Authorised Signatory — Car House Imports Ltd.</div></div>
+      </div>
+      </body></html>
+    `);
+    w.document.close();
+    setTimeout(() => w.print(), 500);
+  };
+
+  if (loading) return <div className="flex items-center justify-center py-20"><div className="w-6 h-6 border border-white/20 border-t-white rounded-full animate-spin" /></div>;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-light text-white tracking-wide">Invoice Generator</h1>
+        <p className="text-zinc-500 text-sm mt-1">Generate branded invoices and money receipts</p>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="bg-[#0a0a0a] border border-white/10 p-6 rounded-lg space-y-4">
+          <p className="text-xs font-semibold tracking-widest uppercase text-zinc-500">Select Sale</p>
+          <div>
+            <label className="block text-[10px] font-semibold tracking-[0.2em] uppercase text-zinc-500 mb-1">Document Type</label>
+            <select value={invoiceType} onChange={e => setInvoiceType(e.target.value as any)}
+              className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2.5 outline-none appearance-none">
+              <option value="invoice">Sales Invoice</option>
+              <option value="receipt">Money Receipt</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-[10px] font-semibold tracking-[0.2em] uppercase text-zinc-500 mb-1">Sale Record</label>
+            <select value={selectedSale} onChange={e => setSelectedSale(e.target.value)}
+              className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2.5 outline-none appearance-none">
+              <option value="">Select a sale…</option>
+              {sales.map(s => {
+                const c = vehicles.find(v => v.id === s.car_id);
+                return <option key={s.id} value={s.id}>{s.id} — {c?.make} {c?.model}</option>;
+              })}
+            </select>
+          </div>
+          {sale && (
+            <button onClick={printInvoice}
+              className="w-full py-3 bg-white text-black text-xs font-semibold tracking-[0.2em] uppercase hover:bg-zinc-200 transition-colors">
+              🖨 Print / Save PDF
+            </button>
+          )}
+        </div>
+
+        <div className="lg:col-span-2">
+          {sale && car && customer ? (
+            <div id="invoice-preview" className="bg-white text-black p-8 rounded-lg shadow-xl" style={{ fontFamily: "serif" }}>
+              <div className="flex justify-between items-start border-b-2 border-black pb-6 mb-6">
+                <div>
+                  <p className="text-2xl font-black tracking-widest">CAR HOUSE</p>
+                  <p className="text-xs text-gray-500 tracking-widest uppercase mt-1">Imports Ltd. · Bangladesh's Premier Luxury Importer</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xl font-light tracking-widest uppercase">{invoiceType === "invoice" ? "Sales Invoice" : "Money Receipt"}</p>
+                  <p className="text-sm text-gray-500 mt-1">{sale.id} · {sale.sale_date}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-8 mb-6">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Bill To</p>
+                  <p className="font-bold text-lg">{customer.name}</p>
+                  <p className="text-sm text-gray-600">{customer.phone}</p>
+                  <p className="text-sm text-gray-600">{customer.address}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Vehicle</p>
+                  <p className="font-bold text-lg">{car.make} {car.model}</p>
+                  <p className="text-sm text-gray-600">Year: {car.year} · {car.color}</p>
+                  <p className="text-sm text-gray-600">Chassis: {car.chassis_no}</p>
+                  <p className="text-sm text-gray-600">Origin: {car.origin}</p>
+                </div>
+              </div>
+              <table className="w-full text-sm mb-6">
+                <thead><tr className="bg-black text-white">
+                  <th className="text-left p-3 text-xs tracking-widest uppercase">Description</th>
+                  <th className="text-right p-3 text-xs tracking-widest uppercase">Amount</th>
+                </tr></thead>
+                <tbody>
+                  <tr className="border-b border-gray-200"><td className="p-3">{car.make} {car.model} ({car.year}) — {car.engine_cc}cc {car.transmission}</td><td className="p-3 text-right font-semibold">{fmtN(sale.sale_price)}</td></tr>
+                  {(sale.discount || 0) > 0 && <tr className="border-b border-gray-200"><td className="p-3 text-gray-500">Discount</td><td className="p-3 text-right text-red-600">- {fmtN(sale.discount)}</td></tr>}
+                  <tr className="border-b border-gray-200"><td className="p-3 text-gray-500">Down Payment Received ({sale.payment_method})</td><td className="p-3 text-right text-green-700">{fmtN(sale.down_payment)}</td></tr>
+                  <tr className="border-t-2 border-black"><td className="p-3 font-bold text-base">Total Sale Price</td><td className="p-3 text-right font-bold text-base">{fmtN(sale.sale_price)}</td></tr>
+                  <tr><td className="p-3 font-bold">Balance Due</td><td className={`p-3 text-right font-bold ${(sale.sale_price - sale.down_payment) > 0 ? "text-red-600" : "text-green-700"}`}>{fmtN(sale.sale_price - sale.down_payment)}</td></tr>
+                </tbody>
+              </table>
+              {sale.notes && <p className="text-xs text-gray-500 mb-6 italic">Note: {sale.notes}</p>}
+              <div className="grid grid-cols-2 gap-16 mt-12">
+                <div className="border-t border-black pt-2 text-center text-xs text-gray-400 uppercase tracking-widest">Customer Signature</div>
+                <div className="border-t border-black pt-2 text-center text-xs text-gray-400 uppercase tracking-widest">Authorised Signatory</div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-[#0a0a0a] border border-white/10 rounded-lg flex items-center justify-center text-zinc-600 text-sm" style={{ minHeight: 400 }}>
+              Select a sale to preview the invoice
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ══════════════════════════════════════════════════════════════
+   INSTALLMENT TRACKER
+══════════════════════════════════════════════════════════════ */
+const InstallmentTracker = () => {
+  const [sales, setSales] = useState<Sale[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [installments, setInstallments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedSale, setSelectedSale] = useState<string>("");
+  const [showCreate, setShowCreate] = useState(false);
+  const [emiForm, setEmiForm] = useState({ months: "12", startDate: "", monthlyAmount: "" });
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const [s, v, c, inst] = await Promise.all([
+      supabase.from("sales").select("*").eq("payment_method", "Installment"),
+      supabase.from("vehicles").select("*"),
+      supabase.from("customers").select("*"),
+      supabase.from("installments").select("*").order("due_date", { ascending: true }),
+    ]);
+    setSales(s.data || []);
+    setVehicles(v.data || []);
+    setCustomers(c.data || []);
+    setInstallments(inst.data || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const createSchedule = async () => {
+    if (!selectedSale) return;
+    setSaving(true);
+    const months = parseInt(emiForm.months) || 12;
+    const startDate = new Date(emiForm.startDate);
+    const monthly = parseFloat(emiForm.monthlyAmount) || 0;
+    const schedule = Array.from({ length: months }, (_, i) => {
+      const due = new Date(startDate);
+      due.setMonth(due.getMonth() + i);
+      return {
+        sale_id: selectedSale,
+        installment_number: i + 1,
+        due_date: due.toISOString().split("T")[0],
+        amount: monthly,
+        status: "pending",
+      };
+    });
+    await supabase.from("installments").delete().eq("sale_id", selectedSale);
+    await supabase.from("installments").insert(schedule);
+    setSaving(false);
+    setShowCreate(false);
+    load();
+  };
+
+  const markPaid = async (id: number) => {
+    await supabase.from("installments").update({ status: "paid", paid_date: new Date().toISOString().split("T")[0] }).eq("id", id);
+    setInstallments(p => p.map(i => i.id === id ? { ...i, status: "paid", paid_date: new Date().toISOString().split("T")[0] } : i));
+  };
+
+  const fmtN = (n: number) => "৳ " + Math.round(n || 0).toLocaleString("en-BD");
+
+  const saleInstallments = selectedSale ? installments.filter(i => i.sale_id === selectedSale) : [];
+  const paid = saleInstallments.filter(i => i.status === "paid").length;
+  const overdue = saleInstallments.filter(i => i.status === "pending" && new Date(i.due_date) < new Date()).length;
+  const totalPaid = saleInstallments.filter(i => i.status === "paid").reduce((a, i) => a + i.amount, 0);
+  const totalDue = saleInstallments.filter(i => i.status === "pending").reduce((a, i) => a + i.amount, 0);
+
+  if (loading) return <div className="flex items-center justify-center py-20"><div className="w-6 h-6 border border-white/20 border-t-white rounded-full animate-spin" /></div>;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-end justify-between">
+        <div>
+          <h1 className="text-2xl font-light text-white tracking-wide">Installment Tracker</h1>
+          <p className="text-zinc-500 text-sm mt-1">Track EMI schedules and payment status</p>
+        </div>
+        {selectedSale && <button onClick={() => setShowCreate(true)} className="px-5 py-2.5 bg-white text-black text-xs font-semibold tracking-[0.2em] uppercase hover:bg-zinc-200">Create / Reset Schedule</button>}
+      </div>
+
+      <div className="bg-[#0a0a0a] border border-white/10 p-4 rounded-lg flex items-center gap-4">
+        <label className="text-[10px] font-semibold tracking-[0.2em] uppercase text-zinc-500 flex-shrink-0">Select Installment Sale</label>
+        <select value={selectedSale} onChange={e => setSelectedSale(e.target.value)}
+          className="flex-1 bg-black border border-white/10 text-white text-sm px-3 py-2 outline-none appearance-none">
+          <option value="">Select a sale…</option>
+          {sales.map(s => {
+            const car = vehicles.find(v => v.id === s.car_id);
+            const cust = customers.find(c => c.id === s.customer_id);
+            return <option key={s.id} value={s.id}>{s.id} — {car?.make} {car?.model} · {cust?.name}</option>;
+          })}
+        </select>
+      </div>
+
+      {selectedSale && (
+        <>
+          {saleInstallments.length > 0 ? (
+            <>
+              <div className="grid grid-cols-4 gap-4">
+                {[
+                  { label: "Total Installments", value: saleInstallments.length },
+                  { label: "Paid", value: paid, color: "text-green-400" },
+                  { label: "Overdue", value: overdue, color: "text-red-400" },
+                  { label: "Remaining", value: saleInstallments.length - paid },
+                ].map(s => (
+                  <div key={s.label} className="bg-[#0a0a0a] border border-white/10 p-4 rounded-lg text-center">
+                    <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">{s.label}</p>
+                    <p className={`text-2xl font-light ${s.color || "text-white"}`}>{s.value}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-[#0a0a0a] border border-green-500/20 p-4 rounded-lg flex justify-between">
+                  <span className="text-zinc-400 text-sm">Total Collected</span>
+                  <span className="text-green-400 font-semibold">{fmtN(totalPaid)}</span>
+                </div>
+                <div className="bg-[#0a0a0a] border border-red-500/20 p-4 rounded-lg flex justify-between">
+                  <span className="text-zinc-400 text-sm">Outstanding Balance</span>
+                  <span className="text-red-400 font-semibold">{fmtN(totalDue)}</span>
+                </div>
+              </div>
+              <div className="bg-[#0a0a0a] border border-white/10 rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead><tr className="border-b border-white/8">
+                    {["#", "Due Date", "Amount", "Status", "Paid On", "Action"].map(h => (
+                      <th key={h} className="text-left text-[9px] font-semibold tracking-[0.25em] uppercase text-zinc-600 px-5 py-3">{h}</th>
+                    ))}
+                  </tr></thead>
+                  <tbody>
+                    {saleInstallments.map(inst => {
+                      const isOverdue = inst.status === "pending" && new Date(inst.due_date) < new Date();
+                      return (
+                        <tr key={inst.id} className="border-b border-white/5 hover:bg-white/2">
+                          <td className="px-5 py-3 text-zinc-500">{inst.installment_number}</td>
+                          <td className={`px-5 py-3 ${isOverdue ? "text-red-400 font-medium" : "text-white"}`}>{inst.due_date}</td>
+                          <td className="px-5 py-3 text-white">{fmtN(inst.amount)}</td>
+                          <td className="px-5 py-3">
+                            <span className={`px-2 py-0.5 text-xs rounded-full font-medium uppercase tracking-wider ${inst.status === "paid" ? "bg-green-500/15 text-green-400 border border-green-500/25" : isOverdue ? "bg-red-500/15 text-red-400 border border-red-500/25" : "bg-zinc-800 text-zinc-400 border border-zinc-700"}`}>
+                              {inst.status === "paid" ? "Paid" : isOverdue ? "Overdue" : "Pending"}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3 text-zinc-500 text-xs">{inst.paid_date || "—"}</td>
+                          <td className="px-5 py-3">
+                            {inst.status === "pending" && (
+                              <button onClick={() => markPaid(inst.id)}
+                                className="text-[10px] uppercase tracking-wider px-3 py-1 bg-white text-black font-semibold hover:bg-zinc-200 transition-colors">
+                                Mark Paid
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : (
+            <div className="bg-[#0a0a0a] border border-white/10 rounded-lg flex flex-col items-center justify-center py-16 gap-4">
+              <p className="text-zinc-500 text-sm">No installment schedule created yet for this sale.</p>
+              <button onClick={() => setShowCreate(true)} className="px-5 py-2.5 bg-white text-black text-xs font-semibold tracking-[0.2em] uppercase hover:bg-zinc-200">
+                Create Schedule
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.9)" }}>
+          <div className="bg-[#111] border border-white/10 w-full max-w-md rounded-lg">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+              <h2 className="text-base font-semibold text-white">Create Installment Schedule</h2>
+              <button onClick={() => setShowCreate(false)} className="text-zinc-500 hover:text-white text-xl">×</button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-[10px] font-semibold tracking-[0.2em] uppercase text-zinc-500 mb-1">Number of Months</label>
+                <input type="number" value={emiForm.months} onChange={e => setEmiForm(p => ({ ...p, months: e.target.value }))}
+                  className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2.5 outline-none focus:border-white/40" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold tracking-[0.2em] uppercase text-zinc-500 mb-1">First Installment Date</label>
+                <input type="date" value={emiForm.startDate} onChange={e => setEmiForm(p => ({ ...p, startDate: e.target.value }))}
+                  className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2.5 outline-none focus:border-white/40" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold tracking-[0.2em] uppercase text-zinc-500 mb-1">Monthly Amount (৳)</label>
+                <input type="number" value={emiForm.monthlyAmount} onChange={e => setEmiForm(p => ({ ...p, monthlyAmount: e.target.value }))}
+                  placeholder="e.g. 500000"
+                  className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2.5 outline-none focus:border-white/40" />
+              </div>
+              <div className="flex gap-3 justify-end pt-2">
+                <button onClick={() => setShowCreate(false)} className="px-4 py-2 text-xs tracking-[0.2em] uppercase text-zinc-500 border border-white/10 hover:border-white/30">Cancel</button>
+                <button onClick={createSchedule} disabled={saving} className="px-5 py-2 text-xs tracking-[0.2em] uppercase bg-white text-black font-semibold hover:bg-zinc-200 disabled:opacity-50">
+                  {saving ? "Creating…" : "Create Schedule"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ══════════════════════════════════════════════════════════════
+   DOCUMENT VAULT
+══════════════════════════════════════════════════════════════ */
+const DocumentVault = () => {
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [documents, setDocuments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedVehicle, setSelectedVehicle] = useState<string>("");
+  const [uploading, setUploading] = useState(false);
+  const [docType, setDocType] = useState("Auction Sheet");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const [v, d] = await Promise.all([
+      supabase.from("vehicles").select("id,make,model,year").order("created_at", { ascending: false }),
+      supabase.from("vehicle_documents").select("*").order("uploaded_at", { ascending: false }),
+    ]);
+    setVehicles(v.data || []);
+    setDocuments(d.data || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedVehicle) return;
+    setUploading(true);
+    const ext = file.name.split(".").pop();
+    const path = `${selectedVehicle}/${docType.replace(/ /g, "_")}_${Date.now()}.${ext}`;
+    const { data: uploadData, error: uploadError } = await supabase.storage.from("car-images").upload(path, file);
+    if (uploadError) { alert("Upload error: " + uploadError.message); setUploading(false); return; }
+    const { data: urlData } = supabase.storage.from("car-images").getPublicUrl(path);
+    await supabase.from("vehicle_documents").insert([{
+      vehicle_id: selectedVehicle,
+      document_type: docType,
+      file_name: file.name,
+      file_url: urlData.publicUrl,
+    }]);
+    setUploading(false);
+    if (fileRef.current) fileRef.current.value = "";
+    load();
+  };
+
+  const deleteDoc = async (id: number) => {
+    await supabase.from("vehicle_documents").delete().eq("id", id);
+    setDocuments(p => p.filter(d => d.id !== id));
+  };
+
+  const filteredDocs = selectedVehicle ? documents.filter(d => d.vehicle_id === selectedVehicle) : documents;
+
+  if (loading) return <div className="flex items-center justify-center py-20"><div className="w-6 h-6 border border-white/20 border-t-white rounded-full animate-spin" /></div>;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-light text-white tracking-wide">Document Vault</h1>
+        <p className="text-zinc-500 text-sm mt-1">Store and manage vehicle documents — auction sheets, customs papers, registration</p>
+      </div>
+
+      <div className="bg-[#0a0a0a] border border-white/10 p-6 rounded-lg">
+        <p className="text-xs font-semibold tracking-widest uppercase text-zinc-500 mb-4">Upload Document</p>
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className="block text-[10px] font-semibold tracking-[0.2em] uppercase text-zinc-500 mb-1">Vehicle</label>
+            <select value={selectedVehicle} onChange={e => setSelectedVehicle(e.target.value)}
+              className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2.5 outline-none appearance-none">
+              <option value="">All vehicles</option>
+              {vehicles.map(v => <option key={v.id} value={v.id}>{v.id} — {v.make} {v.model} ({v.year})</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-[10px] font-semibold tracking-[0.2em] uppercase text-zinc-500 mb-1">Document Type</label>
+            <select value={docType} onChange={e => setDocType(e.target.value)}
+              className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2.5 outline-none appearance-none">
+              {["Auction Sheet", "Customs Declaration", "Bill of Lading", "Import Permit", "Registration Paper", "Insurance Certificate", "Sales Agreement", "C&F Agent Agreement", "Other"].map(t => <option key={t}>{t}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-[10px] font-semibold tracking-[0.2em] uppercase text-zinc-500 mb-1">File (PDF, Image)</label>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png,.webp"
+              disabled={!selectedVehicle || uploading}
+              onChange={handleUpload}
+              className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2 outline-none file:mr-3 file:py-1 file:px-3 file:border-0 file:bg-zinc-700 file:text-white file:text-xs file:cursor-pointer disabled:opacity-40"
+            />
+          </div>
+        </div>
+        {uploading && <p className="text-zinc-400 text-xs mt-3 animate-pulse">Uploading document…</p>}
+        {!selectedVehicle && <p className="text-zinc-600 text-xs mt-3">Select a vehicle above to enable upload</p>}
+      </div>
+
+      <div className="bg-[#0a0a0a] border border-white/10 rounded-lg overflow-hidden">
+        <div className="px-5 py-3 border-b border-white/8 flex justify-between items-center">
+          <p className="text-xs font-semibold tracking-widest uppercase text-zinc-500">
+            {selectedVehicle ? `Documents for ${vehicles.find(v => v.id === selectedVehicle)?.make} ${vehicles.find(v => v.id === selectedVehicle)?.model}` : `All Documents (${documents.length})`}
+          </p>
+        </div>
+        {filteredDocs.length === 0 ? (
+          <div className="px-5 py-12 text-center text-zinc-600 text-sm">No documents uploaded yet.</div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead><tr className="border-b border-white/8">
+              {["Vehicle", "Document Type", "File Name", "Uploaded", ""].map(h => (
+                <th key={h} className="text-left text-[9px] font-semibold tracking-[0.25em] uppercase text-zinc-600 px-5 py-3">{h}</th>
+              ))}
+            </tr></thead>
+            <tbody>
+              {filteredDocs.map(doc => {
+                const veh = vehicles.find(v => v.id === doc.vehicle_id);
+                return (
+                  <tr key={doc.id} className="border-b border-white/5 hover:bg-white/2">
+                    <td className="px-5 py-3 text-zinc-400 text-xs font-mono">{veh ? `${veh.make} ${veh.model}` : doc.vehicle_id}</td>
+                    <td className="px-5 py-3"><span className="px-2 py-0.5 bg-zinc-800 text-zinc-300 text-xs rounded border border-zinc-700">{doc.document_type}</span></td>
+                    <td className="px-5 py-3 text-white text-xs">{doc.file_name}</td>
+                    <td className="px-5 py-3 text-zinc-500 text-xs">{new Date(doc.uploaded_at).toLocaleDateString()}</td>
+                    <td className="px-5 py-3 flex gap-3">
+                      <a href={doc.file_url} target="_blank" rel="noreferrer" className="text-[10px] uppercase tracking-wider text-zinc-400 border border-white/10 px-2 py-1 hover:border-white/30 hover:text-white transition-all">View</a>
+                      <button onClick={() => deleteDoc(doc.id)} className="text-[10px] uppercase tracking-wider text-red-500/60 border border-red-500/20 px-2 py-1 hover:border-red-500/40 hover:text-red-400 transition-all">Delete</button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/* ══════════════════════════════════════════════════════════════
    NAV
 ══════════════════════════════════════════════════════════════ */
 const NAV = [
@@ -1575,6 +2398,11 @@ const NAV = [
   { id: "customs", label: "Customs", icon: "⬡" },
   { id: "reports", label: "Reports", icon: "▣" },
   { id: "settings", label: "Settings", icon: "⊙" },
+  { id: "landedCost", label: "Landed Cost", icon: "⊕" },
+  { id: "nbrDuty", label: "NBR Duty", icon: "⊜" },
+  { id: "invoice", label: "Invoice Generator", icon: "▤" },
+  { id: "installments", label: "Installments", icon: "◷" },
+  { id: "vault", label: "Document Vault", icon: "◩" },
 ];
 
 /* ══════════════════════════════════════════════════════════════
@@ -1610,6 +2438,8 @@ export default function Page() {
     customers: <Customers />, shipments: <Shipments />, enquiries: <Enquiries />,
     finance: <Finance />, staff: <Staff />, website: <WebsiteCMS />,
     customs: <Customs />, reports: <Reports />, settings: <Settings />, analytics: <Analytics />,
+    landedCost: <LandedCost />, nbrDuty: <NBRCalculator />, invoice: <InvoiceGenerator />,
+    installments: <InstallmentTracker />, vault: <DocumentVault />,
   };
 
   return (
