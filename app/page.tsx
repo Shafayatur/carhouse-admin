@@ -2,6 +2,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+
 
 /* ══════════════════════════════════════════════════════════════
    TYPES
@@ -99,10 +101,10 @@ const Select = ({ children, ...props }: React.SelectHTMLAttributes<HTMLSelectEle
   </select>
 );
 
-const StatCard = ({ label, value, sub }: { label: string; value: string | number; sub?: string }) => (
+const StatCard = ({ label, value, sub, accent }: { label: string; value: string | number; sub?: string; accent?: string }) => (
   <div className="border border-white/10 p-6 bg-[#0a0a0a]">
     <p className="text-[10px] font-semibold tracking-[0.25em] uppercase text-zinc-500 mb-3">{label}</p>
-    <p className="text-3xl font-light text-white mb-1">{value}</p>
+    <p className="text-3xl font-light mb-1" style={{ color: accent || 'white' }}>{value}</p>
     {sub && <p className="text-xs text-zinc-600">{sub}</p>}
   </div>
 );
@@ -1185,12 +1187,383 @@ const Settings = () => (
     </div>
   </div>
 );
+// ═══════════════════════════════════════════════════════════════
+// ANALYTICS SECTION
+// Add this to app/page.tsx
+// 
+// STEP 1: Add this import at the top of page.tsx (after existing imports):
+// import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+//
+// STEP 2: Add "analytics" to the NAV array:
+// { id: "analytics", label: "Analytics", icon: "◉" },
+//
+// STEP 3: Add to PAGES object:
+// analytics: <Analytics />,
+//
+// STEP 4: Paste the Analytics component below into page.tsx
+//         (before the NAV const, after the Staff component)
+// ═══════════════════════════════════════════════════════════════
 
+const Analytics = () => {
+  const PageHeader = ({ title, sub, action }: { title: string; sub?: string; action?: React.ReactNode }) => (
+    <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 24 }}>
+      <div>
+        <h1 style={{ fontSize: 22, fontWeight: 600, color: "white", letterSpacing: "-0.01em" }}>{title}</h1>
+        {sub && <p style={{ fontSize: 13, color: "#6b7590", marginTop: 3 }}>{sub}</p>}
+      </div>
+      {action}
+    </div>
+  );
+  const Card = ({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) => (
+    <div style={{ background: "#0a0a0a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, ...style }}>{children}</div>
+  );
+  const CardHeader = ({ title, action }: { title: string; action?: React.ReactNode }) => (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+      <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "#4a5268" }}>{title}</p>
+      {action}
+    </div>
+  );
+  const Empty = ({ msg }: { msg: string }) => (
+    <div style={{ padding: "40px 24px", textAlign: "center", color: "#4a5268", fontSize: 13 }}>{msg}</div>
+  );
+  const Table = ({ headers, children }: { headers: string[]; children: React.ReactNode }) => (
+    <div style={{ overflowX: "auto" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+          {headers.map(h => <th key={h} style={{ textAlign: "left", fontSize: 11, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", color: "#4a5268", padding: "10px 16px", whiteSpace: "nowrap" }}>{h}</th>)}
+        </tr></thead>
+        <tbody>{children}</tbody>
+      </table>
+    </div>
+  );
+  const TR = ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) => (
+    <tr onClick={onClick} style={{ borderBottom: "1px solid rgba(255,255,255,0.07)", cursor: onClick ? "pointer" : "default" }}>{children}</tr>
+  );
+  const TD = ({ children, mono, muted, style }: { children: React.ReactNode; mono?: boolean; muted?: boolean; style?: React.CSSProperties }) => (
+    <td style={{ padding: "12px 16px", fontSize: 13, color: muted ? "#6b7590" : "#f0f2f7", fontFamily: mono ? "monospace" : "inherit", ...style }}>{children}</td>
+  );
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [sales, setSales] = useState<Sale[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      supabase.from("vehicles").select("*"),
+      supabase.from("sales").select("*").order("sale_date", { ascending: true }),
+      supabase.from("expenses").select("*"),
+    ]).then(([v, s, e]) => {
+      setVehicles(v.data || []);
+      setSales(s.data || []);
+      setExpenses(e.data || []);
+      setLoading(false);
+    });
+  }, []);
+
+  if (loading) return <Spinner />;
+
+  // ── COMPUTED DATA ──────────────────────────────────────────
+
+  // Revenue by month
+  const revenueByMonth: Record<string, { month: string; revenue: number; expenses: number; profit: number }> = {};
+  sales.forEach(s => {
+    if (!s.sale_date) return;
+    const month = s.sale_date.slice(0, 7); // "2024-11"
+    const label = new Date(s.sale_date).toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+    if (!revenueByMonth[month]) revenueByMonth[month] = { month: label, revenue: 0, expenses: 0, profit: 0 };
+    revenueByMonth[month].revenue += s.sale_price || 0;
+  });
+  expenses.forEach(e => {
+    if (!e.date) return;
+    const month = e.date.slice(0, 7);
+    const label = new Date(e.date).toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+    if (!revenueByMonth[month]) revenueByMonth[month] = { month: label, revenue: 0, expenses: 0, profit: 0 };
+    revenueByMonth[month].expenses += e.amount || 0;
+  });
+  const monthlyData = Object.values(revenueByMonth).map(d => ({ ...d, profit: d.revenue - d.expenses })).sort((a, b) => a.month.localeCompare(b.month));
+
+  // Inventory by status
+  const statusCounts = [
+    { name: "Available", value: vehicles.filter(v => v.status === "Available").length, color: "#34c97a" },
+    { name: "Reserved", value: vehicles.filter(v => v.status === "Reserved").length, color: "#f0a030" },
+    { name: "In Transit", value: vehicles.filter(v => v.status === "In Transit").length, color: "#5b9cf6" },
+    { name: "Sold", value: vehicles.filter(v => v.status === "Sold").length, color: "#6b7590" },
+  ].filter(s => s.value > 0);
+
+  // Stock by origin
+  const originMap: Record<string, number> = {};
+  vehicles.forEach(v => { if (v.origin) originMap[v.origin] = (originMap[v.origin] || 0) + 1; });
+  const originData = Object.entries(originMap).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+
+  // Expenses by category
+  const expMap: Record<string, number> = {};
+  expenses.forEach(e => { if (e.category) expMap[e.category] = (expMap[e.category] || 0) + e.amount; });
+  const expCatData = Object.entries(expMap).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+
+  // Brand performance
+  const brandMap: Record<string, { brand: string; units: number; revenue: number; avgPrice: number }> = {};
+  sales.forEach(s => {
+    const car = vehicles.find(v => v.id === s.car_id);
+    if (!car) return;
+    const brand = car.make;
+    if (!brandMap[brand]) brandMap[brand] = { brand, units: 0, revenue: 0, avgPrice: 0 };
+    brandMap[brand].units += 1;
+    brandMap[brand].revenue += s.sale_price || 0;
+  });
+  Object.values(brandMap).forEach(b => { b.avgPrice = b.units ? Math.round(b.revenue / b.units) : 0; });
+  const brandData = Object.values(brandMap).sort((a, b) => b.revenue - a.revenue);
+
+  // Vehicle profit margins
+  const margins = vehicles.filter(v => v.status === "Sold").map(v => {
+    const sale = sales.find(s => s.car_id === v.id);
+    const cost = (v.purchase_price || 0) + (v.customs_duty || 0) + (v.shipping_cost || 0);
+    const revenue = sale?.sale_price || v.selling_price || 0;
+    const profit = revenue - cost;
+    const margin = cost > 0 ? Math.round((profit / cost) * 100) : 0;
+    return { name: `${v.make} ${v.model}`, profit, margin, cost, revenue };
+  }).sort((a, b) => b.profit - a.profit);
+
+  // KPIs
+  const totalRev = sales.reduce((a, s) => a + (s.sale_price || 0), 0);
+  const totalExp = expenses.reduce((a, e) => a + (e.amount || 0), 0);
+  const totalCost = vehicles.filter(v => v.status === "Sold").reduce((a, v) => a + (v.purchase_price || 0) + (v.customs_duty || 0) + (v.shipping_cost || 0), 0);
+  const grossMargin = totalCost > 0 ? Math.round(((totalRev - totalCost) / totalRev) * 100) : 0;
+  const avgSalePrice = sales.length ? Math.round(totalRev / sales.length) : 0;
+  const availableValue = vehicles.filter(v => v.status === "Available").reduce((a, v) => a + (v.selling_price || 0), 0);
+  const soldCount = vehicles.filter(v => v.status === "Sold").length;
+
+  // Tooltip formatter
+  const fmtTick = (v: number) => v >= 10000000 ? `৳${(v / 10000000).toFixed(1)}Cr` : v >= 100000 ? `৳${(v / 100000).toFixed(0)}L` : `৳${v.toLocaleString()}`;
+
+  const CHART_COLORS = ["#c9a84c", "#34c97a", "#5b9cf6", "#f0a030", "#e05252", "#a78bfa", "#34d399", "#f472b6"];
+
+  // Custom tooltip
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (!active || !payload?.length) return null;
+    return (
+      <div style={{ background: "#1e2535", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 8, padding: "10px 14px", fontSize: 12 }}>
+        <p style={{ color: "#9ba3b8", marginBottom: 6, fontWeight: 600 }}>{label}</p>
+        {payload.map((p: any, i: number) => (
+          <p key={i} style={{ color: p.color, marginBottom: 2 }}>
+            {p.name}: {typeof p.value === "number" && p.value > 10000 ? fmtTick(p.value) : p.value}
+          </p>
+        ))}
+      </div>
+    );
+  };
+
+  return (
+    <div className="fade-in">
+      <PageHeader title="Analytics" sub="Business intelligence and performance metrics" />
+
+      {/* ── KPI CARDS ──────────────────────────────────────── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 10, marginBottom: 20 }}>
+        <StatCard label="Total Revenue" value={fmtTick(totalRev)} accent="var(--green)" />
+        <StatCard label="Net Profit" value={fmtTick(totalRev - totalExp)} accent={totalRev - totalExp >= 0 ? "var(--green)" : "var(--red)"} />
+        <StatCard label="Gross Margin" value={`${grossMargin}%`} accent="var(--gold)" />
+        <StatCard label="Avg. Sale Price" value={fmtTick(avgSalePrice)} />
+        <StatCard label="Stock Value" value={fmtTick(availableValue)} sub={`${vehicles.filter(v => v.status === "Available").length} vehicles`} accent="var(--blue)" />
+      </div>
+
+      {/* ── ROW 1: Revenue vs Expenses + Inventory Donut ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 12, marginBottom: 12 }}>
+
+        {/* Monthly Revenue vs Expenses */}
+        <Card>
+          <CardHeader title="Monthly Revenue vs Expenses" />
+          <div style={{ padding: "20px 16px 12px" }}>
+            {monthlyData.length === 0 ? (
+              <Empty msg="No sales or expense data yet." />
+            ) : (
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={monthlyData} barGap={4}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                  <XAxis dataKey="month" tick={{ fill: "#6b7590", fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tickFormatter={fmtTick} tick={{ fill: "#6b7590", fontSize: 10 }} axisLine={false} tickLine={false} width={72} />
+                  <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
+                  <Legend wrapperStyle={{ fontSize: 11, color: "#9ba3b8", paddingTop: 12 }} />
+                  <Bar dataKey="revenue" name="Revenue" fill="#34c97a" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="expenses" name="Expenses" fill="#e05252" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="profit" name="Profit" fill="#c9a84c" radius={[3, 3, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </Card>
+
+        {/* Inventory Donut */}
+        <Card>
+          <CardHeader title="Inventory by Status" />
+          <div style={{ padding: "16px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+            {statusCounts.length === 0 ? <Empty msg="No inventory data." /> : (
+              <>
+                <ResponsiveContainer width="100%" height={180}>
+                  <PieChart>
+                    <Pie data={statusCounts} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="value">
+                      {statusCounts.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                    </Pie>
+                    <Tooltip content={<CustomTooltip />} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", marginTop: 8 }}>
+                  {statusCounts.map(s => (
+                    <div key={s.name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ width: 8, height: 8, borderRadius: "50%", background: s.color }} />
+                        <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{s.name}</span>
+                      </div>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{s.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </Card>
+      </div>
+
+      {/* ── ROW 2: Profit Trend + Origin Breakdown ─────── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+
+        {/* Profit trend line */}
+        <Card>
+          <CardHeader title="Profit Trend" />
+          <div style={{ padding: "20px 16px 12px" }}>
+            {monthlyData.length === 0 ? <Empty msg="No data yet." /> : (
+              <ResponsiveContainer width="100%" height={220}>
+                <LineChart data={monthlyData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                  <XAxis dataKey="month" tick={{ fill: "#6b7590", fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tickFormatter={fmtTick} tick={{ fill: "#6b7590", fontSize: 10 }} axisLine={false} tickLine={false} width={72} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Line type="monotone" dataKey="profit" name="Profit" stroke="#c9a84c" strokeWidth={2.5} dot={{ fill: "#c9a84c", r: 4 }} activeDot={{ r: 6 }} />
+                  <Line type="monotone" dataKey="revenue" name="Revenue" stroke="#34c97a" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </Card>
+
+        {/* Stock by origin */}
+        <Card>
+          <CardHeader title="Stock by Origin Country" />
+          <div style={{ padding: "20px 16px 12px" }}>
+            {originData.length === 0 ? <Empty msg="No inventory data." /> : (
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={originData} layout="vertical" barSize={18}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
+                  <XAxis type="number" tick={{ fill: "#6b7590", fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis dataKey="name" type="category" tick={{ fill: "#9ba3b8", fontSize: 12 }} axisLine={false} tickLine={false} width={80} />
+                  <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
+                  <Bar dataKey="value" name="Vehicles" radius={[0, 4, 4, 0]}>
+                    {originData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </Card>
+      </div>
+
+      {/* ── ROW 3: Expense breakdown + Brand performance ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "340px 1fr", gap: 12, marginBottom: 12 }}>
+
+        {/* Expense pie */}
+        <Card>
+          <CardHeader title="Expense Breakdown" />
+          <div style={{ padding: "16px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+            {expCatData.length === 0 ? <Empty msg="No expenses yet." /> : (
+              <>
+                <ResponsiveContainer width="100%" height={180}>
+                  <PieChart>
+                    <Pie data={expCatData} cx="50%" cy="50%" outerRadius={80} paddingAngle={2} dataKey="value">
+                      {expCatData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip content={<CustomTooltip />} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%", marginTop: 8 }}>
+                  {expCatData.map((e, i) => (
+                    <div key={e.name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ width: 8, height: 8, borderRadius: 2, background: CHART_COLORS[i % CHART_COLORS.length] }} />
+                        <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{e.name}</span>
+                      </div>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>{fmtTick(e.value)}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </Card>
+
+        {/* Brand performance table */}
+        <Card>
+          <CardHeader title="Brand Performance" />
+          {brandData.length === 0 ? <Empty msg="No sales data yet." /> : (
+            <Table headers={["Brand", "Units Sold", "Total Revenue", "Avg. Sale Price"]}>
+              {brandData.map((b, i) => (
+                <TR key={b.brand}>
+                  <TD>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: CHART_COLORS[i % CHART_COLORS.length], flexShrink: 0 }} />
+                      <span style={{ fontWeight: 600 }}>{b.brand}</span>
+                    </div>
+                  </TD>
+                  <TD muted>{b.units}</TD>
+                  <TD style={{ color: "var(--green)", fontWeight: 600 }}>{fmtTick(b.revenue)}</TD>
+                  <TD muted>{fmtTick(b.avgPrice)}</TD>
+                </TR>
+              ))}
+            </Table>
+          )}
+        </Card>
+      </div>
+
+      {/* ── ROW 4: Vehicle profit margins ──────────────── */}
+      {margins.length > 0 && (
+        <Card>
+          <CardHeader title="Vehicle Profit Margins (Sold Vehicles)" />
+          <div style={{ padding: "20px 16px 12px" }}>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={margins.slice(0, 8)}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                <XAxis dataKey="name" tick={{ fill: "#6b7590", fontSize: 10 }} axisLine={false} tickLine={false} interval={0} />
+                <YAxis tickFormatter={fmtTick} tick={{ fill: "#6b7590", fontSize: 10 }} axisLine={false} tickLine={false} width={72} />
+                <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
+                <Bar dataKey="profit" name="Profit" radius={[4, 4, 0, 0]}>
+                  {margins.slice(0, 8).map((m, i) => <Cell key={i} fill={m.profit >= 0 ? "#34c97a" : "#e05252"} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <Table headers={["Vehicle", "Cost", "Sale Price", "Profit", "Margin %"]}>
+            {margins.slice(0, 6).map(m => (
+              <TR key={m.name}>
+                <TD style={{ fontWeight: 500 }}>{m.name}</TD>
+                <TD muted>{fmtTick(m.cost)}</TD>
+                <TD muted>{fmtTick(m.revenue)}</TD>
+                <TD style={{ fontWeight: 600, color: m.profit >= 0 ? "var(--green)" : "var(--red)" }}>{fmtTick(m.profit)}</TD>
+                <TD>
+                  <span style={{ padding: "2px 8px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: m.margin >= 20 ? "rgba(52,201,122,0.12)" : m.margin >= 10 ? "rgba(240,160,48,0.12)" : "rgba(224,82,82,0.12)", color: m.margin >= 20 ? "var(--green)" : m.margin >= 10 ? "var(--amber)" : "var(--red)" }}>
+                    {m.margin}%
+                  </span>
+                </TD>
+              </TR>
+            ))}
+          </Table>
+        </Card>
+      )}
+    </div>
+  );
+};
 /* ══════════════════════════════════════════════════════════════
    NAV
 ══════════════════════════════════════════════════════════════ */
 const NAV = [
   { id: "dashboard", label: "Dashboard", icon: "◈" },
+  { id: "analytics", label: "Analytics", icon: "📊" },
   { id: "inventory", label: "Inventory", icon: "◻" },
   { id: "sales", label: "Sales", icon: "◇" },
   { id: "customers", label: "Customers", icon: "○" },
@@ -1236,7 +1609,7 @@ export default function Page() {
     dashboard: <Dashboard />, inventory: <Inventory />, sales: <Sales />,
     customers: <Customers />, shipments: <Shipments />, enquiries: <Enquiries />,
     finance: <Finance />, staff: <Staff />, website: <WebsiteCMS />,
-    customs: <Customs />, reports: <Reports />, settings: <Settings />,
+    customs: <Customs />, reports: <Reports />, settings: <Settings />, analytics: <Analytics />,
   };
 
   return (
