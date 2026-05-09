@@ -1,69 +1,77 @@
 "use client";
-
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 
 /* ══════════════════════════════════════════════════════════════
-   DATA
-   (In a real app, these would come from your API routes)
+   TYPES
 ══════════════════════════════════════════════════════════════ */
-const MOCK_INVENTORY = [
-  { id:"INV-001",make:"Toyota",model:"Land Cruiser GX",year:2024,color:"Pearl White",vin:"JT3HN87R5Y0234512",origin:"Japan",port:"Chittagong",purchasePrice:8500000,sellingPrice:11200000,status:"Available",condition:"New",mileage:0,engineCC:4608,transmission:"Automatic",fuelType:"Petrol",importDate:"2024-11-10",chassisNo:"CH-23451",customsDuty:1200000,shippingCost:450000,featured:true},
-  { id:"INV-002",make:"BMW",model:"X5 xDrive40i",year:2023,color:"Sapphire Black",vin:"5UXCR6C04P9N12345",origin:"Germany",port:"Chittagong",purchasePrice:9200000,sellingPrice:13500000,status:"Reserved",condition:"New",mileage:12,engineCC:2998,transmission:"Automatic",fuelType:"Petrol",importDate:"2024-10-05",chassisNo:"CH-23452",customsDuty:1800000,shippingCost:520000,featured:true},
-  { id:"INV-003",make:"Mercedes-Benz",model:"GLE 450 AMG",year:2024,color:"Obsidian Black",vin:"4JGFB4JB8PA123456",origin:"Germany",port:"Mongla",purchasePrice:10800000,sellingPrice:15900000,status:"Sold",condition:"New",mileage:0,engineCC:2999,transmission:"Automatic",fuelType:"Petrol",importDate:"2024-09-20",chassisNo:"CH-23453",customsDuty:2100000,shippingCost:580000,featured:false},
-  { id:"INV-004",make:"Lexus",model:"LX 600 Ultra",year:2024,color:"Sonic Titanium",vin:"JTJHY7AX0P4098765",origin:"Japan",port:"Chittagong",purchasePrice:12500000,sellingPrice:17800000,status:"Available",condition:"New",mileage:0,engineCC:3444,transmission:"Automatic",fuelType:"Petrol",importDate:"2025-01-15",chassisNo:"CH-23454",customsDuty:2500000,shippingCost:620000,featured:true},
-  { id:"INV-005",make:"Porsche",model:"Cayenne S",year:2023,color:"Carmine Red",vin:"WP1AF2AY4NDA67890",origin:"Germany",port:"Chittagong",purchasePrice:11200000,sellingPrice:16200000,status:"Available",condition:"New",mileage:5,engineCC:2894,transmission:"Automatic",fuelType:"Petrol",importDate:"2024-12-01",chassisNo:"CH-23455",customsDuty:2200000,shippingCost:590000,featured:false},
-  { id:"INV-006",make:"Audi",model:"Q7 55 TFSI",year:2024,color:"Glacier White",vin:"WA1VXAF72PD023456",origin:"Germany",port:"Chittagong",purchasePrice:9800000,sellingPrice:14200000,status:"In Transit",condition:"New",mileage:0,engineCC:2995,transmission:"Automatic",fuelType:"Petrol",importDate:"2025-02-10",chassisNo:"CH-23456",customsDuty:1950000,shippingCost:540000,featured:false},
-  { id:"INV-007",make:"Land Rover",model:"Defender 110 X",year:2024,color:"Gondwana Stone",vin:"SALPA2RX4PA123456",origin:"UK",port:"Chittagong",purchasePrice:10200000,sellingPrice:15500000,status:"Available",condition:"New",mileage:0,engineCC:2997,transmission:"Automatic",fuelType:"Petrol",importDate:"2025-01-28",chassisNo:"CH-23457",customsDuty:2050000,shippingCost:560000,featured:true},
-  { id:"INV-008",make:"Volvo",model:"XC90 B6 Ultimate",year:2024,color:"Crystal White",vin:"YV1PA8543P1234567",origin:"Sweden",port:"Chittagong",purchasePrice:7200000,sellingPrice:10800000,status:"Available",condition:"New",mileage:0,engineCC:1969,transmission:"Automatic",fuelType:"Mild Hybrid",importDate:"2025-02-20",chassisNo:"CH-23458",customsDuty:1440000,shippingCost:480000,featured:false},
-];
-const MOCK_CUSTOMERS = [
-  { id:"CUS-001",name:"Rafiqul Islam",phone:"+8801711234567",email:"rafiqul@example.com",address:"Gulshan-2, Dhaka",nid:"1234567890123",type:"Individual",totalPurchases:1,status:"Active",joinDate:"2024-09-20",notes:"VIP — prefers luxury SUVs"},
-  { id:"CUS-002",name:"Sonia Akter",phone:"+8801812345678",email:"sonia@abcltd.com",address:"Dhanmondi, Dhaka",nid:"9876543210987",type:"Corporate",totalPurchases:0,status:"Active",joinDate:"2024-10-15",notes:"Interested in BMW X5"},
-  { id:"CUS-003",name:"Karim Enterprises",phone:"+8801923456789",email:"karim@karim.com",address:"Motijheel, Dhaka",nid:"TIN-456789",type:"Corporate",totalPurchases:4,status:"Active",joinDate:"2024-08-01",notes:"Fleet buyer — 4 vehicles"},
-  { id:"CUS-004",name:"Ahmed Nawaz",phone:"+8801611111111",email:"ahmed@nawaz.com",address:"Sylhet",nid:"1112223334445",type:"Individual",totalPurchases:1,status:"Active",joinDate:"2024-11-05",notes:"Referred by Karim"},
-];
-const MOCK_SALES = [
-  { id:"SAL-001",carId:"INV-003",customerId:"CUS-001",saleDate:"2024-12-15",salePrice:15900000,downPayment:5000000,paymentMethod:"Installment",status:"Completed",salesperson:"Tanvir Ahmed",discount:200000,notes:"3-year installment plan"},
-  { id:"SAL-002",carId:"INV-001",customerId:"CUS-003",saleDate:"2025-01-20",salePrice:11200000,downPayment:11200000,paymentMethod:"Full",status:"Completed",salesperson:"Nadia Rahman",discount:0,notes:"Cash deal"},
-];
-const MOCK_SHIPMENTS = [
-  { id:"SHP-001",origin:"Yokohama, Japan",destination:"Chittagong",carIds:["INV-001","INV-004"],vessel:"MV Asian Tiger",bl:"BL-2024-001234",etd:"2024-10-20",eta:"2024-11-08",status:"Delivered",agent:"Evergreen Logistics",freight:1070000},
-  { id:"SHP-002",origin:"Hamburg, Germany",destination:"Chittagong",carIds:["INV-002","INV-003","INV-005"],vessel:"MV Euro Star",bl:"BL-2024-002345",etd:"2024-09-15",eta:"2024-10-30",status:"Delivered",agent:"MSC Bangladesh",freight:1690000},
-  { id:"SHP-003",origin:"Hamburg, Germany",destination:"Chittagong",carIds:["INV-006"],vessel:"MV Global Link",bl:"BL-2025-000123",etd:"2025-01-25",eta:"2025-03-10",status:"In Transit",agent:"Maersk BD",freight:540000},
-];
-const MOCK_EXPENSES = [
-  { id:"EXP-001",category:"Shipping",amount:1070000,date:"2024-11-01",desc:"SHP-001 freight"},
-  { id:"EXP-002",category:"Customs & Taxes",amount:7510000,date:"2024-11-10",desc:"Clearance SHP-001"},
-  { id:"EXP-003",category:"Staff Salary",amount:295000,date:"2024-11-30",desc:"November salaries"},
-  { id:"EXP-004",category:"Showroom Rent",amount:150000,date:"2024-11-01",desc:"Monthly rent"},
-  { id:"EXP-005",category:"Insurance",amount:320000,date:"2024-10-20",desc:"Marine insurance SHP-002"},
-];
-const MOCK_STAFF = [
-  { id:"STF-001",name:"Tanvir Ahmed",role:"Sales Manager",email:"tanvir@carhouse.com.bd",phone:"+8801711000001",salary:85000,department:"Sales",status:"Active",join:"2022-01-15"},
-  { id:"STF-002",name:"Nadia Rahman",role:"Sales Executive",email:"nadia@carhouse.com.bd",phone:"+8801811000002",salary:55000,department:"Sales",status:"Active",join:"2023-03-10"},
-  { id:"STF-003",name:"Arif Hossain",role:"Import Manager",email:"arif@carhouse.com.bd",phone:"+8801611000003",salary:90000,department:"Import",status:"Active",join:"2021-07-20"},
-  { id:"STF-004",name:"Sumaiya Begum",role:"Accountant",email:"sumaiya@carhouse.com.bd",phone:"+8801911000004",salary:65000,department:"Finance",status:"Active",join:"2023-06-01"},
-];
+type Vehicle = {
+  id: string; make: string; model: string; year: number; color: string;
+  vin: string; chassis_no: string; origin: string; port: string;
+  purchase_price: number; selling_price: number; status: string;
+  condition: string; mileage: number; engine_cc: number;
+  transmission: string; fuel_type: string; import_date: string;
+  customs_duty: number; shipping_cost: number; featured: boolean;
+};
+type Customer = {
+  id: string; name: string; phone: string; email: string;
+  address: string; nid: string; type: string; status: string; notes: string; join_date: string;
+};
+type Sale = {
+  id: string; car_id: string; customer_id: string; sale_date: string;
+  sale_price: number; down_payment: number; payment_method: string;
+  status: string; salesperson: string; discount: number; notes: string;
+};
+type Shipment = {
+  id: string; origin: string; destination: string; vessel: string;
+  bl_number: string; etd: string; eta: string; status: string; agent: string; freight: number;
+};
+type Staff = {
+  id: string; name: string; role: string; department: string;
+  email: string; phone: string; salary: number; status: string; join_date: string;
+};
+type Expense = {
+  id: number; category: string; amount: number; date: string;
+  description: string; reference: string; paid_to: string;
+};
+type Enquiry = {
+  id: number; name: string; phone: string; email: string;
+  vehicle_id: string; message: string; type: string; status: string; created_at: string;
+};
 
 /* ══════════════════════════════════════════════════════════════
    HELPERS
 ══════════════════════════════════════════════════════════════ */
-const fmt = (n: any) => "৳ " + Number(n).toLocaleString("en-BD");
+const fmt = (n: number) => "৳ " + Number(n || 0).toLocaleString("en-BD");
 
 const Badge = ({ label }: { label: string }) => {
   const map: Record<string, string> = {
-    Available:"bg-white text-black", Reserved:"bg-zinc-700 text-white border border-zinc-500",
-    Sold:"bg-zinc-900 text-zinc-400 border border-zinc-700", "In Transit":"bg-zinc-800 text-zinc-300 border border-zinc-600",
-    Processing:"bg-zinc-800 text-zinc-300", Delivered:"bg-white/10 text-white border border-white/20",
-    Completed:"bg-white text-black", Active:"bg-white text-black",
-    Cleared:"bg-white text-black", Corporate:"bg-zinc-800 text-white", Individual:"bg-zinc-700 text-white",
-    Full:"bg-white text-black", Installment:"bg-zinc-700 text-white",
+    Available: "bg-white text-black",
+    Reserved: "bg-zinc-700 text-white border border-zinc-500",
+    Sold: "bg-zinc-900 text-zinc-400 border border-zinc-700",
+    "In Transit": "bg-zinc-800 text-zinc-300 border border-zinc-600",
+    Processing: "bg-zinc-800 text-zinc-300",
+    Delivered: "bg-white/10 text-white border border-white/20",
+    Completed: "bg-white text-black",
+    Active: "bg-white text-black",
+    Cleared: "bg-white text-black",
+    Corporate: "bg-zinc-800 text-white",
+    Individual: "bg-zinc-700 text-white",
+    Full: "bg-white text-black",
+    Installment: "bg-zinc-700 text-white",
+    new: "bg-zinc-700 text-white",
+    pending: "bg-zinc-800 text-zinc-300",
   };
-  return <span className={`px-2.5 py-0.5 text-xs font-medium tracking-wider uppercase ${map[label]||"bg-zinc-800 text-zinc-300"}`}>{label}</span>;
+  return (
+    <span className={`px-2.5 py-0.5 text-xs font-medium tracking-wider uppercase ${map[label] || "bg-zinc-800 text-zinc-300"}`}>
+      {label}
+    </span>
+  );
 };
 
-const Modal = ({ title, onClose, children }: { title: string, onClose: () => void, children: React.ReactNode }) => (
-  <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{background:"rgba(0,0,0,0.9)"}}>
+const Modal = ({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) => (
+  <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.9)" }}>
     <div className="bg-[#111] border border-white/10 w-full max-w-2xl max-h-[88vh] overflow-y-auto">
       <div className="flex items-center justify-between px-8 py-5 border-b border-white/10">
         <h2 className="text-base font-semibold text-white tracking-wide">{title}</h2>
@@ -74,25 +82,24 @@ const Modal = ({ title, onClose, children }: { title: string, onClose: () => voi
   </div>
 );
 
-const Field = ({ label, children }: { label: string, children: React.ReactNode }) => (
+const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
   <div>
     <label className="block text-[10px] font-semibold tracking-[0.2em] uppercase text-zinc-500 mb-2">{label}</label>
     {children}
   </div>
 );
+
 const Input = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
   <input {...props} className="w-full bg-black border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/40 placeholder-zinc-600 transition-colors" />
 );
+
 const Select = ({ children, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) => (
   <select {...props} className="w-full bg-black border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/40 transition-colors appearance-none">
     {children}
   </select>
 );
 
-/* ══════════════════════════════════════════════════════════════
-   STAT CARD
-══════════════════════════════════════════════════════════════ */
-const StatCard = ({ label, value, sub }: { label: string, value: string | number, sub?: string }) => (
+const StatCard = ({ label, value, sub }: { label: string; value: string | number; sub?: string }) => (
   <div className="border border-white/10 p-6 bg-[#0a0a0a]">
     <p className="text-[10px] font-semibold tracking-[0.25em] uppercase text-zinc-500 mb-3">{label}</p>
     <p className="text-3xl font-light text-white mb-1">{value}</p>
@@ -100,76 +107,109 @@ const StatCard = ({ label, value, sub }: { label: string, value: string | number
   </div>
 );
 
+const Spinner = () => (
+  <div className="flex items-center justify-center py-20">
+    <div className="w-6 h-6 border border-white/20 border-t-white rounded-full animate-spin" />
+  </div>
+);
+
 /* ══════════════════════════════════════════════════════════════
-   SECTIONS
+   DASHBOARD
 ══════════════════════════════════════════════════════════════ */
 const Dashboard = () => {
-  const rev = MOCK_SALES.reduce((a,s)=>a+s.salePrice,0);
-  const exp = MOCK_EXPENSES.reduce((a,e)=>a+e.amount,0);
-  const avail = MOCK_INVENTORY.filter(c=>c.status==="Available").length;
-  const transit = MOCK_INVENTORY.filter(c=>c.status==="In Transit").length;
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [sales, setSales] = useState<Sale[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      const [v, s, e, enq] = await Promise.all([
+        supabase.from("vehicles").select("*"),
+        supabase.from("sales").select("*").order("created_at", { ascending: false }).limit(5),
+        supabase.from("expenses").select("*"),
+        supabase.from("enquiries").select("*").order("created_at", { ascending: false }).limit(5),
+      ]);
+      setVehicles(v.data || []);
+      setSales(s.data || []);
+      setExpenses(e.data || []);
+      setEnquiries(enq.data || []);
+      setLoading(false);
+    };
+    load();
+  }, []);
+
+  if (loading) return <Spinner />;
+
+  const rev = sales.reduce((a, s) => a + (s.sale_price || 0), 0);
+  const exp = expenses.reduce((a, e) => a + (e.amount || 0), 0);
+  const avail = vehicles.filter(v => v.status === "Available").length;
+  const transit = vehicles.filter(v => v.status === "In Transit").length;
+
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-light text-white tracking-wide">Dashboard</h1>
-        <p className="text-zinc-500 text-sm mt-1 tracking-wide">Car House Imports Ltd. — System Overview</p>
+        <p className="text-zinc-500 text-sm mt-1">Car House Imports Ltd. — Live Overview</p>
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-white/5">
         <StatCard label="Total Revenue" value={fmt(rev)} sub="Completed sales" />
         <StatCard label="Available Stock" value={avail} sub="Ready for sale" />
         <StatCard label="In Transit" value={transit} sub="Incoming" />
-        <StatCard label="Net Profit Est." value={fmt(rev-exp)} sub="Rev. minus expenses" />
+        <StatCard label="Net Profit Est." value={fmt(rev - exp)} sub="Rev. minus expenses" />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-px bg-white/5">
         <div className="lg:col-span-2 bg-[#0a0a0a] p-6">
           <p className="text-[10px] font-semibold tracking-[0.25em] uppercase text-zinc-500 mb-5">Recent Sales</p>
-          <div className="space-y-0">
-            {MOCK_SALES.map(s=>{
-              const car=MOCK_INVENTORY.find(c=>c.id===s.carId);
-              const cust=MOCK_CUSTOMERS.find(c=>c.id===s.customerId);
+          {sales.length === 0 ? (
+            <p className="text-zinc-600 text-sm">No sales recorded yet.</p>
+          ) : (
+            sales.map(s => {
+              const car = vehicles.find(v => v.id === s.car_id);
               return (
                 <div key={s.id} className="flex items-center justify-between py-4 border-b border-white/5">
                   <div>
-                    <p className="text-white text-sm">{car?.make} {car?.model}</p>
-                    <p className="text-zinc-600 text-xs mt-0.5">{cust?.name} · {s.saleDate}</p>
+                    <p className="text-white text-sm">{car ? `${car.make} ${car.model}` : s.car_id}</p>
+                    <p className="text-zinc-600 text-xs mt-0.5">{s.salesperson} · {s.sale_date}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-white text-sm font-medium">{fmt(s.salePrice)}</p>
-                    <div className="mt-1"><Badge label={s.status}/></div>
+                    <p className="text-white text-sm font-medium">{fmt(s.sale_price)}</p>
+                    <div className="mt-1"><Badge label={s.status} /></div>
                   </div>
                 </div>
               );
-            })}
-          </div>
+            })
+          )}
         </div>
         <div className="bg-[#0a0a0a] p-6">
           <p className="text-[10px] font-semibold tracking-[0.25em] uppercase text-zinc-500 mb-5">Inventory Status</p>
-          {["Available","Reserved","In Transit","Sold"].map(st=>{
-            const cnt = MOCK_INVENTORY.filter(c=>c.status===st).length;
-            const pct = Math.round(cnt/MOCK_INVENTORY.length*100);
+          {["Available", "Reserved", "In Transit", "Sold"].map(st => {
+            const cnt = vehicles.filter(v => v.status === st).length;
+            const pct = vehicles.length ? Math.round((cnt / vehicles.length) * 100) : 0;
             return (
               <div key={st} className="mb-4">
                 <div className="flex justify-between text-xs mb-1.5">
-                  <span className="text-zinc-400 tracking-wide">{st}</span>
+                  <span className="text-zinc-400">{st}</span>
                   <span className="text-zinc-600">{cnt}</span>
                 </div>
                 <div className="h-px bg-white/8">
-                  <div className="h-px bg-white transition-all duration-1000" style={{width:`${pct}%`}}/>
+                  <div className="h-px bg-white" style={{ width: `${pct}%` }} />
                 </div>
               </div>
             );
           })}
           <div className="mt-6 pt-6 border-t border-white/5">
-            <p className="text-[10px] font-semibold tracking-[0.25em] uppercase text-zinc-500 mb-4">Alerts</p>
-            {[
-              {msg:"SHP-003 arriving ~Mar 2025",urgent:false},
-              {msg:"INV-006 customs pending",urgent:true},
-              {msg:"BMW X5 — awaiting payment",urgent:false},
-            ].map((a,i)=>(
-              <div key={i} className={`flex gap-3 p-3 mb-2 text-xs border ${a.urgent?"border-white/20 text-white bg-white/5":"border-white/5 text-zinc-400"}`}>
-                <span>{a.urgent?"⚠":"·"}</span>{a.msg}
-              </div>
-            ))}
+            <p className="text-[10px] font-semibold tracking-[0.25em] uppercase text-zinc-500 mb-4">New Enquiries</p>
+            {enquiries.length === 0 ? (
+              <p className="text-zinc-600 text-xs">No enquiries yet.</p>
+            ) : (
+              enquiries.map(e => (
+                <div key={e.id} className="flex gap-3 p-3 mb-2 text-xs border border-white/5 text-zinc-400">
+                  <span>·</span>{e.name} — {e.type}
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -177,80 +217,206 @@ const Dashboard = () => {
   );
 };
 
+/* ══════════════════════════════════════════════════════════════
+   INVENTORY
+══════════════════════════════════════════════════════════════ */
 const Inventory = () => {
-  const [search,setSearch]=useState("");
-  const [filter,setFilter]=useState("All");
-  const [selected,setSelected]=useState<any>(null);
-  const [showAdd,setShowAdd]=useState(false);
-  const filtered = MOCK_INVENTORY.filter(c=>(filter==="All"||c.status===filter)&&`${c.make} ${c.model} ${c.id}`.toLowerCase().includes(search.toLowerCase()));
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState("All");
+  const [selected, setSelected] = useState<Vehicle | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    id: "", make: "", model: "", year: "", color: "", vin: "", chassis_no: "",
+    origin: "", port: "", purchase_price: "", selling_price: "", engine_cc: "",
+    transmission: "", fuel_type: "Petrol", condition: "New", mileage: "0",
+    customs_duty: "", shipping_cost: "", import_date: "",
+  });
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase.from("vehicles").select("*").order("created_at", { ascending: false });
+    setVehicles(data || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const filtered = vehicles.filter(v =>
+    (filter === "All" || v.status === filter) &&
+    `${v.make} ${v.model} ${v.id}`.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const handleAdd = async () => {
+    setSaving(true);
+    const { error } = await supabase.from("vehicles").insert([{
+      id: form.id || `INV-${Date.now()}`,
+      make: form.make, model: form.model, year: parseInt(form.year),
+      color: form.color, vin: form.vin, chassis_no: form.chassis_no,
+      origin: form.origin, port: form.port,
+      purchase_price: parseInt(form.purchase_price),
+      selling_price: parseInt(form.selling_price),
+      engine_cc: parseInt(form.engine_cc),
+      transmission: form.transmission, fuel_type: form.fuel_type,
+      condition: form.condition, mileage: parseInt(form.mileage),
+      customs_duty: parseInt(form.customs_duty),
+      shipping_cost: parseInt(form.shipping_cost),
+      import_date: form.import_date, status: "Available", featured: false,
+    }]);
+    setSaving(false);
+    if (!error) { setShowAdd(false); load(); }
+    else alert("Error: " + error.message);
+  };
+
+  const updateStatus = async (id: string, status: string) => {
+    await supabase.from("vehicles").update({ status }).eq("id", id);
+    load();
+    setSelected(null);
+  };
+
+  const toggleFeatured = async (id: string, current: boolean) => {
+    await supabase.from("vehicles").update({ featured: !current }).eq("id", id);
+    load();
+  };
+
+  if (loading) return <Spinner />;
+
   return (
     <div className="space-y-6">
       <div className="flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-light text-white tracking-wide">Inventory</h1>
-          <p className="text-zinc-500 text-sm mt-1">{MOCK_INVENTORY.length} vehicles total</p>
+          <p className="text-zinc-500 text-sm mt-1">{vehicles.length} vehicles total</p>
         </div>
-        <button onClick={()=>setShowAdd(true)} className="flex items-center gap-2 px-5 py-2.5 bg-white text-black text-xs font-semibold tracking-[0.2em] uppercase hover:bg-zinc-200 transition-colors">
+        <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 px-5 py-2.5 bg-white text-black text-xs font-semibold tracking-[0.2em] uppercase hover:bg-zinc-200 transition-colors">
           + Add Vehicle
         </button>
       </div>
       <div className="flex gap-2 flex-wrap">
         <div className="flex items-center gap-3 border border-white/10 px-4 py-2 flex-1 min-w-48 bg-[#0a0a0a]">
           <span className="text-zinc-600 text-xs">⌕</span>
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search vehicles…" className="bg-transparent text-sm text-white placeholder-zinc-600 outline-none w-full"/>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search vehicles…" className="bg-transparent text-sm text-white placeholder-zinc-600 outline-none w-full" />
         </div>
-        {["All","Available","Reserved","In Transit","Sold"].map(f=>(
-          <button key={f} onClick={()=>setFilter(f)} className={`px-4 py-2 text-[10px] font-semibold tracking-[0.2em] uppercase transition-all ${filter===f?"bg-white text-black":"bg-[#0a0a0a] text-zinc-500 border border-white/10 hover:border-white/30"}`}>{f}</button>
+        {["All", "Available", "Reserved", "In Transit", "Sold"].map(f => (
+          <button key={f} onClick={() => setFilter(f)} className={`px-4 py-2 text-[10px] font-semibold tracking-[0.2em] uppercase transition-all ${filter === f ? "bg-white text-black" : "bg-[#0a0a0a] text-zinc-500 border border-white/10 hover:border-white/30"}`}>{f}</button>
         ))}
       </div>
       <div className="border border-white/10">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-white/8">
-              {["ID","Vehicle","Year","Origin","Purchase","Selling","Status",""].map(h=>(
+              {["ID", "Vehicle", "Year", "Origin", "Purchase", "Selling", "Status", ""].map(h => (
                 <th key={h} className="text-left text-[9px] font-semibold tracking-[0.25em] uppercase text-zinc-600 px-5 py-3">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {filtered.map((car,i)=>(
-              <tr key={car.id} className={`border-b border-white/5 hover:bg-white/2 transition-colors ${i%2===0?"":"bg-white/1"}`}>
+            {filtered.map((car, i) => (
+              <tr key={car.id} className={`border-b border-white/5 hover:bg-white/2 transition-colors ${i % 2 === 0 ? "" : "bg-white/1"}`}>
                 <td className="px-5 py-4 text-zinc-500 font-mono text-xs">{car.id}</td>
-                <td className="px-5 py-4"><p className="text-white">{car.make} {car.model}</p><p className="text-zinc-600 text-xs mt-0.5">{car.color} · {car.engineCC}cc</p></td>
+                <td className="px-5 py-4">
+                  <p className="text-white">{car.make} {car.model}</p>
+                  <p className="text-zinc-600 text-xs mt-0.5">{car.color} · {car.engine_cc}cc</p>
+                </td>
                 <td className="px-5 py-4 text-zinc-400">{car.year}</td>
                 <td className="px-5 py-4 text-zinc-500 text-xs">{car.origin}</td>
-                <td className="px-5 py-4 text-zinc-300">{fmt(car.purchasePrice)}</td>
-                <td className="px-5 py-4 text-white font-medium">{fmt(car.sellingPrice)}</td>
-                <td className="px-5 py-4"><Badge label={car.status}/></td>
-                <td className="px-5 py-4"><button onClick={()=>setSelected(car)} className="text-zinc-600 hover:text-white text-xs tracking-wider uppercase transition-colors">View</button></td>
+                <td className="px-5 py-4 text-zinc-300">{fmt(car.purchase_price)}</td>
+                <td className="px-5 py-4 text-white font-medium">{fmt(car.selling_price)}</td>
+                <td className="px-5 py-4"><Badge label={car.status} /></td>
+                <td className="px-5 py-4">
+                  <button onClick={() => setSelected(car)} className="text-zinc-600 hover:text-white text-xs tracking-wider uppercase transition-colors">View</button>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
       {selected && (
-        <Modal title={`${selected.make} ${selected.model}`} onClose={()=>setSelected(null)}>
-          <div className="grid grid-cols-2 gap-5">
-            {[["ID",selected.id],["VIN",selected.vin],["Chassis",selected.chassisNo],["Year",selected.year],["Color",selected.color],["Origin",selected.origin],["Port",selected.port],["Engine",selected.engineCC+"cc"],["Trans",selected.transmission],["Fuel",selected.fuelType],["Mileage",selected.mileage+" km"],["Import Date",selected.importDate],["Purchase Price",fmt(selected.purchasePrice)],["Selling Price",fmt(selected.sellingPrice)],["Customs Duty",fmt(selected.customsDuty)],["Shipping",fmt(selected.shippingCost)]].map(([k,v])=>(
-              <div key={k}><p className="text-[9px] tracking-[0.25em] uppercase text-zinc-600 mb-1">{k}</p><p className="text-white text-sm">{v}</p></div>
+        <Modal title={`${selected.make} ${selected.model}`} onClose={() => setSelected(null)}>
+          <div className="grid grid-cols-2 gap-5 mb-6">
+            {([
+              ["ID", selected.id], ["VIN", selected.vin], ["Chassis", selected.chassis_no],
+              ["Year", selected.year], ["Color", selected.color], ["Origin", selected.origin],
+              ["Port", selected.port], ["Engine", `${selected.engine_cc}cc`],
+              ["Transmission", selected.transmission], ["Fuel", selected.fuel_type],
+              ["Mileage", `${selected.mileage} km`], ["Import Date", selected.import_date],
+              ["Purchase Price", fmt(selected.purchase_price)], ["Selling Price", fmt(selected.selling_price)],
+              ["Customs Duty", fmt(selected.customs_duty)], ["Shipping", fmt(selected.shipping_cost)],
+            ] as [string, string | number][]).map(([k, v]) => (
+              <div key={k}>
+                <p className="text-[9px] tracking-[0.25em] uppercase text-zinc-600 mb-1">{k}</p>
+                <p className="text-white text-sm">{v}</p>
+              </div>
             ))}
-            <div className="col-span-2"><p className="text-[9px] tracking-[0.25em] uppercase text-zinc-600 mb-2">Status</p><Badge label={selected.status}/></div>
-            <div className="col-span-2"><p className="text-[9px] tracking-[0.25em] uppercase text-zinc-600 mb-2">Featured on Website</p><span className={`text-xs ${selected.featured?"text-white":"text-zinc-600"}`}>{selected.featured?"Yes — visible on homepage":"No"}</span></div>
+            <div className="col-span-2">
+              <p className="text-[9px] tracking-[0.25em] uppercase text-zinc-600 mb-2">Featured on Website</p>
+              <button onClick={() => toggleFeatured(selected.id, selected.featured)} className={`text-xs px-3 py-1.5 border transition-colors ${selected.featured ? "border-white text-white bg-white/10" : "border-white/20 text-zinc-500 hover:border-white/40"}`}>
+                {selected.featured ? "✓ Featured — click to remove" : "Set as Featured"}
+              </button>
+            </div>
+          </div>
+          <div className="border-t border-white/10 pt-5">
+            <p className="text-[9px] tracking-[0.25em] uppercase text-zinc-600 mb-3">Change Status</p>
+            <div className="flex gap-2 flex-wrap">
+              {["Available", "Reserved", "In Transit", "Sold"].map(s => (
+                <button key={s} onClick={() => updateStatus(selected.id, s)} className={`px-4 py-2 text-xs tracking-wider uppercase border transition-all ${selected.status === s ? "bg-white text-black border-white" : "border-white/20 text-zinc-400 hover:border-white/50 hover:text-white"}`}>{s}</button>
+              ))}
+            </div>
           </div>
         </Modal>
       )}
+
       {showAdd && (
-        <Modal title="Add New Vehicle" onClose={()=>setShowAdd(false)}>
+        <Modal title="Add New Vehicle" onClose={() => setShowAdd(false)}>
           <div className="grid grid-cols-2 gap-4">
-            {["Make","Model","Year","Color","VIN","Chassis No","Origin","Port","Engine CC","Transmission","Purchase Price","Selling Price","Customs Duty","Shipping Cost"].map(f=>(
-              <Field key={f} label={f}><Input placeholder={f}/></Field>
+            {([
+              ["Vehicle ID", "id", "e.g. INV-009"],
+              ["Make", "make", "e.g. Toyota"],
+              ["Model", "model", "e.g. Land Cruiser"],
+              ["Year", "year", "2024"],
+              ["Color", "color", "Pearl White"],
+              ["VIN", "vin", "VIN number"],
+              ["Chassis No", "chassis_no", "CH-XXXXX"],
+              ["Origin", "origin", "Japan"],
+              ["Port", "port", "Chittagong"],
+              ["Engine CC", "engine_cc", "4608"],
+              ["Transmission", "transmission", "Automatic"],
+              ["Purchase Price", "purchase_price", "8500000"],
+              ["Selling Price", "selling_price", "11200000"],
+              ["Customs Duty", "customs_duty", "1200000"],
+              ["Shipping Cost", "shipping_cost", "450000"],
+              ["Mileage", "mileage", "0"],
+            ] as [string, string, string][]).map(([label, key, placeholder]) => (
+              <Field key={key} label={label}>
+                <Input
+                  placeholder={placeholder}
+                  value={(form as any)[key]}
+                  onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
+                />
+              </Field>
             ))}
-            <Field label="Fuel Type"><Select><option>Petrol</option><option>Diesel</option><option>Hybrid</option><option>Electric</option></Select></Field>
-            <Field label="Condition"><Select><option>New</option><option>Reconditioned</option><option>Used</option></Select></Field>
+            <Field label="Import Date">
+              <Input type="date" value={form.import_date} onChange={e => setForm(p => ({ ...p, import_date: e.target.value }))} />
+            </Field>
+            <Field label="Fuel Type">
+              <Select value={form.fuel_type} onChange={e => setForm(p => ({ ...p, fuel_type: e.target.value }))}>
+                <option>Petrol</option><option>Diesel</option><option>Hybrid</option><option>Mild Hybrid</option><option>Electric</option>
+              </Select>
+            </Field>
+            <Field label="Condition">
+              <Select value={form.condition} onChange={e => setForm(p => ({ ...p, condition: e.target.value }))}>
+                <option>New</option><option>Reconditioned</option><option>Used</option>
+              </Select>
+            </Field>
           </div>
           <div className="flex gap-3 justify-end mt-6 pt-6 border-t border-white/10">
-            <button onClick={()=>setShowAdd(false)} className="px-5 py-2.5 text-xs tracking-[0.2em] uppercase text-zinc-500 border border-white/10 hover:border-white/30 transition-colors">Cancel</button>
-            <button onClick={()=>setShowAdd(false)} className="px-5 py-2.5 text-xs tracking-[0.2em] uppercase bg-white text-black font-semibold hover:bg-zinc-200 transition-colors">Add Vehicle</button>
+            <button onClick={() => setShowAdd(false)} className="px-5 py-2.5 text-xs tracking-[0.2em] uppercase text-zinc-500 border border-white/10 hover:border-white/30">Cancel</button>
+            <button onClick={handleAdd} disabled={saving} className="px-5 py-2.5 text-xs tracking-[0.2em] uppercase bg-white text-black font-semibold hover:bg-zinc-200 disabled:opacity-50">
+              {saving ? "Saving…" : "Add Vehicle"}
+            </button>
           </div>
         </Modal>
       )}
@@ -258,336 +424,735 @@ const Inventory = () => {
   );
 };
 
-const Sales = () => {
-  const [showAdd,setShowAdd]=useState(false);
-  const rev=MOCK_SALES.reduce((a,s)=>a+s.salePrice,0);
-  return (
-    <div className="space-y-6">
-      <div className="flex items-end justify-between">
-        <div><h1 className="text-2xl font-light text-white tracking-wide">Sales</h1><p className="text-zinc-500 text-sm mt-1">{MOCK_SALES.length} transactions</p></div>
-        <button onClick={()=>setShowAdd(true)} className="px-5 py-2.5 bg-white text-black text-xs font-semibold tracking-[0.2em] uppercase hover:bg-zinc-200 transition-colors">+ New Sale</button>
-      </div>
-      <div className="grid grid-cols-3 gap-px bg-white/5">
-        <StatCard label="Total Revenue" value={fmt(rev)} />
-        <StatCard label="Avg. Sale" value={fmt(rev/MOCK_SALES.length)} />
-        <StatCard label="Total Discounts" value={fmt(MOCK_SALES.reduce((a,s)=>a+s.discount,0))} />
-      </div>
-      <div className="border border-white/10">
-        <table className="w-full text-sm">
-          <thead><tr className="border-b border-white/8">{["Sale ID","Vehicle","Customer","Date","Sale Price","Method","Salesperson","Status"].map(h=><th key={h} className="text-left text-[9px] font-semibold tracking-[0.25em] uppercase text-zinc-600 px-5 py-3">{h}</th>)}</tr></thead>
-          <tbody>
-            {MOCK_SALES.map(s=>{
-              const car=MOCK_INVENTORY.find(c=>c.id===s.carId);
-              const cust=MOCK_CUSTOMERS.find(c=>c.id===s.customerId);
-              return (
-                <tr key={s.id} className="border-b border-white/5 hover:bg-white/2">
-                  <td className="px-5 py-4 text-zinc-500 font-mono text-xs">{s.id}</td>
-                  <td className="px-5 py-4 text-white">{car?.make} {car?.model}</td>
-                  <td className="px-5 py-4 text-zinc-300">{cust?.name}</td>
-                  <td className="px-5 py-4 text-zinc-500 text-xs">{s.saleDate}</td>
-                  <td className="px-5 py-4 text-white font-medium">{fmt(s.salePrice)}</td>
-                  <td className="px-5 py-4"><Badge label={s.paymentMethod}/></td>
-                  <td className="px-5 py-4 text-zinc-500 text-xs">{s.salesperson}</td>
-                  <td className="px-5 py-4"><Badge label={s.status}/></td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      {showAdd&&<Modal title="Record New Sale" onClose={()=>setShowAdd(false)}>
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Vehicle"><Select>{MOCK_INVENTORY.filter(c=>c.status==="Available"||c.status==="Reserved").map(c=><option key={c.id}>{c.id} — {c.make} {c.model}</option>)}</Select></Field>
-          <Field label="Customer"><Select>{MOCK_CUSTOMERS.map(c=><option key={c.id}>{c.id} — {c.name}</option>)}</Select></Field>
-          {["Sale Date","Sale Price (৳)","Down Payment (৳)","Discount (৳)","Salesperson"].map(f=><Field key={f} label={f}><Input placeholder={f}/></Field>)}
-          <Field label="Payment Method"><Select><option>Full</option><option>Installment</option><option>Bank Finance</option></Select></Field>
-        </div>
-        <div className="flex gap-3 justify-end mt-6 pt-6 border-t border-white/10">
-          <button onClick={()=>setShowAdd(false)} className="px-5 py-2.5 text-xs tracking-[0.2em] uppercase text-zinc-500 border border-white/10 hover:border-white/30">Cancel</button>
-          <button onClick={()=>setShowAdd(false)} className="px-5 py-2.5 text-xs tracking-[0.2em] uppercase bg-white text-black font-semibold">Record Sale</button>
-        </div>
-      </Modal>}
-    </div>
-  );
-};
-
+/* ══════════════════════════════════════════════════════════════
+   CUSTOMERS
+══════════════════════════════════════════════════════════════ */
 const Customers = () => {
-  const [search,setSearch]=useState("");
-  const [showAdd,setShowAdd]=useState(false);
-  const filtered=MOCK_CUSTOMERS.filter(c=>c.name.toLowerCase().includes(search.toLowerCase())||c.phone.includes(search));
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [showAdd, setShowAdd] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ name: "", phone: "", email: "", address: "", nid: "", type: "Individual", notes: "" });
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase.from("customers").select("*").order("created_at", { ascending: false });
+    setCustomers(data || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleAdd = async () => {
+    setSaving(true);
+    const { error } = await supabase.from("customers").insert([{
+      id: `CUS-${Date.now()}`,
+      ...form, join_date: new Date().toISOString().split("T")[0], status: "Active",
+    }]);
+    setSaving(false);
+    if (!error) { setShowAdd(false); load(); }
+    else alert("Error: " + error.message);
+  };
+
+  const filtered = customers.filter(c =>
+    c.name?.toLowerCase().includes(search.toLowerCase()) || c.phone?.includes(search)
+  );
+
+  if (loading) return <Spinner />;
+
   return (
     <div className="space-y-6">
       <div className="flex items-end justify-between">
-        <div><h1 className="text-2xl font-light text-white tracking-wide">Customers</h1><p className="text-zinc-500 text-sm mt-1">{MOCK_CUSTOMERS.length} registered</p></div>
-        <button onClick={()=>setShowAdd(true)} className="px-5 py-2.5 bg-white text-black text-xs font-semibold tracking-[0.2em] uppercase hover:bg-zinc-200 transition-colors">+ Add</button>
+        <div>
+          <h1 className="text-2xl font-light text-white tracking-wide">Customers</h1>
+          <p className="text-zinc-500 text-sm mt-1">{customers.length} registered</p>
+        </div>
+        <button onClick={() => setShowAdd(true)} className="px-5 py-2.5 bg-white text-black text-xs font-semibold tracking-[0.2em] uppercase hover:bg-zinc-200">+ Add</button>
       </div>
       <div className="flex items-center gap-3 border border-white/10 px-4 py-2 bg-[#0a0a0a]">
         <span className="text-zinc-600 text-xs">⌕</span>
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search by name or phone…" className="bg-transparent text-sm text-white placeholder-zinc-600 outline-none w-full"/>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or phone…" className="bg-transparent text-sm text-white placeholder-zinc-600 outline-none w-full" />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-white/5">
-        {filtered.map(c=>(
+        {filtered.map(c => (
           <div key={c.id} className="bg-[#0a0a0a] p-6">
             <div className="flex items-start justify-between mb-4">
-              <div className="w-10 h-10 border border-white/20 flex items-center justify-center text-white font-light text-lg">{c.name[0]}</div>
-              <Badge label={c.type}/>
+              <div className="w-10 h-10 border border-white/20 flex items-center justify-center text-white font-light text-lg">{c.name?.[0]}</div>
+              <Badge label={c.type} />
             </div>
             <p className="text-white font-medium">{c.name}</p>
             <p className="text-zinc-500 text-xs mt-1">{c.phone}</p>
             <p className="text-zinc-600 text-xs">{c.email}</p>
             <p className="text-zinc-700 text-xs mt-1">{c.address}</p>
             <div className="flex justify-between items-center mt-4 pt-4 border-t border-white/5">
-              <span className="text-xs text-zinc-600">{c.totalPurchases} purchase(s)</span>
-              <Badge label={c.status}/>
+              <span className="text-xs text-zinc-600">Since {c.join_date}</span>
+              <Badge label={c.status} />
             </div>
-            {c.notes&&<p className="text-xs text-zinc-500 mt-2 italic">"{c.notes}"</p>}
+            {c.notes && <p className="text-xs text-zinc-500 mt-2 italic">"{c.notes}"</p>}
           </div>
         ))}
       </div>
-      {showAdd&&<Modal title="Add Customer" onClose={()=>setShowAdd(false)}>
-        <div className="grid grid-cols-2 gap-4">
-          {["Full Name","Phone","Email","NID / TIN"].map(f=><Field key={f} label={f}><Input placeholder={f}/></Field>)}
-          <div className="col-span-2"><Field label="Address"><Input placeholder="Address"/></Field></div>
-          <Field label="Type"><Select><option>Individual</option><option>Corporate</option></Select></Field>
-          <div className="col-span-2"><Field label="Notes"><Input placeholder="Notes"/></Field></div>
-        </div>
-        <div className="flex gap-3 justify-end mt-6 pt-6 border-t border-white/10">
-          <button onClick={()=>setShowAdd(false)} className="px-5 py-2.5 text-xs tracking-[0.2em] uppercase text-zinc-500 border border-white/10">Cancel</button>
-          <button onClick={()=>setShowAdd(false)} className="px-5 py-2.5 text-xs tracking-[0.2em] uppercase bg-white text-black font-semibold">Add</button>
-        </div>
-      </Modal>}
+      {showAdd && (
+        <Modal title="Add Customer" onClose={() => setShowAdd(false)}>
+          <div className="grid grid-cols-2 gap-4">
+            {([["Full Name", "name"], ["Phone", "phone"], ["Email", "email"], ["NID / TIN", "nid"]] as [string, string][]).map(([label, key]) => (
+              <Field key={key} label={label}>
+                <Input placeholder={label} value={(form as any)[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))} />
+              </Field>
+            ))}
+            <div className="col-span-2">
+              <Field label="Address">
+                <Input placeholder="Address" value={form.address} onChange={e => setForm(p => ({ ...p, address: e.target.value }))} />
+              </Field>
+            </div>
+            <Field label="Type">
+              <Select value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value }))}>
+                <option>Individual</option><option>Corporate</option>
+              </Select>
+            </Field>
+            <div className="col-span-2">
+              <Field label="Notes">
+                <Input placeholder="Notes" value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} />
+              </Field>
+            </div>
+          </div>
+          <div className="flex gap-3 justify-end mt-6 pt-6 border-t border-white/10">
+            <button onClick={() => setShowAdd(false)} className="px-5 py-2.5 text-xs tracking-[0.2em] uppercase text-zinc-500 border border-white/10">Cancel</button>
+            <button onClick={handleAdd} disabled={saving} className="px-5 py-2.5 text-xs tracking-[0.2em] uppercase bg-white text-black font-semibold disabled:opacity-50">
+              {saving ? "Saving…" : "Add"}
+            </button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };
 
-const Shipments = () => (
-  <div className="space-y-6">
-    <h1 className="text-2xl font-light text-white tracking-wide">Shipments</h1>
-    <div className="space-y-px">
-      {MOCK_SHIPMENTS.map(s=>(
-        <div key={s.id} className="bg-[#0a0a0a] border border-white/8 p-6">
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <div className="flex gap-3 items-center mb-1">
-                <span className="font-mono text-xs text-zinc-500">{s.id}</span>
-                <Badge label={s.status}/>
-              </div>
-              <p className="text-white font-medium">{s.origin} → {s.destination}</p>
-              <p className="text-zinc-500 text-xs mt-1">Vessel: {s.vessel} · B/L: {s.bl}</p>
-            </div>
-            <p className="text-white font-medium text-sm">{fmt(s.freight)}</p>
-          </div>
-          <div className="grid grid-cols-4 gap-6 text-xs border-t border-white/5 pt-4">
-            {[["ETD",s.etd],["ETA",s.eta],["Agent",s.agent],["Units",s.carIds.length+" cars"]].map(([k,v])=>(
-              <div key={k}><p className="text-zinc-600 uppercase tracking-wider mb-1 text-[9px]">{k}</p><p className="text-white">{v}</p></div>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  </div>
-);
+/* ══════════════════════════════════════════════════════════════
+   SALES
+══════════════════════════════════════════════════════════════ */
+const Sales = () => {
+  const [sales, setSales] = useState<Sale[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    car_id: "", customer_id: "", sale_date: "", sale_price: "",
+    down_payment: "", payment_method: "Full", salesperson: "", discount: "0", notes: "",
+  });
 
-const Finance = () => {
-  const rev=MOCK_SALES.reduce((a,s)=>a+s.salePrice,0);
-  const exp=MOCK_EXPENSES.reduce((a,e)=>a+e.amount,0);
-  const cats=[...new Set(MOCK_EXPENSES.map(e=>e.category))];
+  const load = useCallback(async () => {
+    setLoading(true);
+    const [s, v, c] = await Promise.all([
+      supabase.from("sales").select("*").order("created_at", { ascending: false }),
+      supabase.from("vehicles").select("*"),
+      supabase.from("customers").select("*"),
+    ]);
+    setSales(s.data || []);
+    setVehicles(v.data || []);
+    setCustomers(c.data || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleAdd = async () => {
+    setSaving(true);
+    const { error } = await supabase.from("sales").insert([{
+      id: `SAL-${Date.now()}`,
+      car_id: form.car_id, customer_id: form.customer_id,
+      sale_date: form.sale_date, sale_price: parseInt(form.sale_price),
+      down_payment: parseInt(form.down_payment),
+      payment_method: form.payment_method, salesperson: form.salesperson,
+      discount: parseInt(form.discount), notes: form.notes, status: "Completed",
+    }]);
+    if (!error) {
+      await supabase.from("vehicles").update({ status: "Sold" }).eq("id", form.car_id);
+      setShowAdd(false); load();
+    } else alert("Error: " + error.message);
+    setSaving(false);
+  };
+
+  if (loading) return <Spinner />;
+
+  const rev = sales.reduce((a, s) => a + (s.sale_price || 0), 0);
+
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-light text-white tracking-wide">Finance</h1>
+      <div className="flex items-end justify-between">
+        <div>
+          <h1 className="text-2xl font-light text-white tracking-wide">Sales</h1>
+          <p className="text-zinc-500 text-sm mt-1">{sales.length} transactions</p>
+        </div>
+        <button onClick={() => setShowAdd(true)} className="px-5 py-2.5 bg-white text-black text-xs font-semibold tracking-[0.2em] uppercase hover:bg-zinc-200">+ New Sale</button>
+      </div>
       <div className="grid grid-cols-3 gap-px bg-white/5">
         <StatCard label="Total Revenue" value={fmt(rev)} />
-        <StatCard label="Total Expenses" value={fmt(exp)} />
-        <StatCard label="Net Profit" value={fmt(rev-exp)} />
+        <StatCard label="Avg. Sale" value={sales.length ? fmt(rev / sales.length) : "—"} />
+        <StatCard label="Total Discounts" value={fmt(sales.reduce((a, s) => a + (s.discount || 0), 0))} />
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-px bg-white/5">
-        <div className="bg-[#0a0a0a] p-6">
-          <p className="text-[10px] font-semibold tracking-[0.25em] uppercase text-zinc-500 mb-5">Expenses by Category</p>
-          {cats.map(cat=>{
-            const total=MOCK_EXPENSES.filter(e=>e.category===cat).reduce((a,e)=>a+e.amount,0);
-            const pct=Math.round(total/exp*100);
-            return <div key={cat} className="mb-4">
-              <div className="flex justify-between text-xs mb-2"><span className="text-zinc-300 tracking-wide">{cat}</span><span className="text-zinc-600">{fmt(total)}</span></div>
-              <div className="h-px bg-white/8"><div className="h-px bg-white transition-all duration-700" style={{width:`${pct}%`}}/></div>
-            </div>;
-          })}
-        </div>
-        <div className="bg-[#0a0a0a] p-6">
-          <p className="text-[10px] font-semibold tracking-[0.25em] uppercase text-zinc-500 mb-5">Recent Expenses</p>
-          {MOCK_EXPENSES.map(e=>(
-            <div key={e.id} className="flex justify-between items-center py-3 border-b border-white/5">
-              <div><p className="text-zinc-300 text-xs">{e.desc}</p><p className="text-zinc-600 text-xs">{e.category} · {e.date}</p></div>
-              <p className="text-white text-sm">-{fmt(e.amount)}</p>
+      <div className="border border-white/10">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-white/8">
+              {["Sale ID", "Vehicle", "Customer", "Date", "Sale Price", "Method", "Salesperson", "Status"].map(h => (
+                <th key={h} className="text-left text-[9px] font-semibold tracking-[0.25em] uppercase text-zinc-600 px-5 py-3">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {sales.map(s => {
+              const car = vehicles.find(v => v.id === s.car_id);
+              const cust = customers.find(c => c.id === s.customer_id);
+              return (
+                <tr key={s.id} className="border-b border-white/5 hover:bg-white/2">
+                  <td className="px-5 py-4 text-zinc-500 font-mono text-xs">{s.id}</td>
+                  <td className="px-5 py-4 text-white">{car ? `${car.make} ${car.model}` : s.car_id}</td>
+                  <td className="px-5 py-4 text-zinc-300">{cust?.name || s.customer_id}</td>
+                  <td className="px-5 py-4 text-zinc-500 text-xs">{s.sale_date}</td>
+                  <td className="px-5 py-4 text-white font-medium">{fmt(s.sale_price)}</td>
+                  <td className="px-5 py-4"><Badge label={s.payment_method} /></td>
+                  <td className="px-5 py-4 text-zinc-500 text-xs">{s.salesperson}</td>
+                  <td className="px-5 py-4"><Badge label={s.status} /></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {showAdd && (
+        <Modal title="Record New Sale" onClose={() => setShowAdd(false)}>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Vehicle">
+              <Select value={form.car_id} onChange={e => setForm(p => ({ ...p, car_id: e.target.value }))}>
+                <option value="">Select vehicle</option>
+                {vehicles.filter(v => v.status === "Available" || v.status === "Reserved").map(v => (
+                  <option key={v.id} value={v.id}>{v.id} — {v.make} {v.model}</option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Customer">
+              <Select value={form.customer_id} onChange={e => setForm(p => ({ ...p, customer_id: e.target.value }))}>
+                <option value="">Select customer</option>
+                {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </Select>
+            </Field>
+            {([["Sale Date", "sale_date", "date"], ["Sale Price (৳)", "sale_price", "text"], ["Down Payment (৳)", "down_payment", "text"], ["Discount (৳)", "discount", "text"], ["Salesperson", "salesperson", "text"]] as [string, string, string][]).map(([label, key, type]) => (
+              <Field key={key} label={label}>
+                <Input type={type} placeholder={label} value={(form as any)[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))} />
+              </Field>
+            ))}
+            <Field label="Payment Method">
+              <Select value={form.payment_method} onChange={e => setForm(p => ({ ...p, payment_method: e.target.value }))}>
+                <option>Full</option><option>Installment</option><option>Bank Finance</option>
+              </Select>
+            </Field>
+            <div className="col-span-2">
+              <Field label="Notes"><Input placeholder="Notes" value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} /></Field>
             </div>
-          ))}
-        </div>
-      </div>
+          </div>
+          <div className="flex gap-3 justify-end mt-6 pt-6 border-t border-white/10">
+            <button onClick={() => setShowAdd(false)} className="px-5 py-2.5 text-xs tracking-[0.2em] uppercase text-zinc-500 border border-white/10">Cancel</button>
+            <button onClick={handleAdd} disabled={saving} className="px-5 py-2.5 text-xs tracking-[0.2em] uppercase bg-white text-black font-semibold disabled:opacity-50">
+              {saving ? "Saving…" : "Record Sale"}
+            </button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };
 
+/* ══════════════════════════════════════════════════════════════
+   SHIPMENTS
+══════════════════════════════════════════════════════════════ */
+const Shipments = () => {
+  const [shipments, setShipments] = useState<Shipment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    origin: "", destination: "", vessel: "", bl_number: "",
+    etd: "", eta: "", agent: "", freight: "", status: "In Transit",
+  });
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase.from("shipments").select("*").order("created_at", { ascending: false });
+    setShipments(data || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleAdd = async () => {
+    setSaving(true);
+    const { error } = await supabase.from("shipments").insert([{
+      id: `SHP-${Date.now()}`, ...form, freight: parseInt(form.freight),
+    }]);
+    setSaving(false);
+    if (!error) { setShowAdd(false); load(); }
+    else alert("Error: " + error.message);
+  };
+
+  if (loading) return <Spinner />;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-end justify-between">
+        <h1 className="text-2xl font-light text-white tracking-wide">Shipments</h1>
+        <button onClick={() => setShowAdd(true)} className="px-5 py-2.5 bg-white text-black text-xs font-semibold tracking-[0.2em] uppercase hover:bg-zinc-200">+ New</button>
+      </div>
+      <div className="space-y-px">
+        {shipments.length === 0 && <p className="text-zinc-600 text-sm py-8 text-center">No shipments yet.</p>}
+        {shipments.map(s => (
+          <div key={s.id} className="bg-[#0a0a0a] border border-white/8 p-6">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <div className="flex gap-3 items-center mb-1">
+                  <span className="font-mono text-xs text-zinc-500">{s.id}</span>
+                  <Badge label={s.status} />
+                </div>
+                <p className="text-white font-medium">{s.origin} → {s.destination}</p>
+                <p className="text-zinc-500 text-xs mt-1">Vessel: {s.vessel} · B/L: {s.bl_number}</p>
+              </div>
+              <p className="text-white font-medium text-sm">{fmt(s.freight)}</p>
+            </div>
+            <div className="grid grid-cols-4 gap-6 text-xs border-t border-white/5 pt-4">
+              {([["ETD", s.etd], ["ETA", s.eta], ["Agent", s.agent], ["Status", s.status]] as [string, string][]).map(([k, v]) => (
+                <div key={k}>
+                  <p className="text-zinc-600 uppercase tracking-wider mb-1 text-[9px]">{k}</p>
+                  <p className="text-white">{v}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      {showAdd && (
+        <Modal title="New Shipment" onClose={() => setShowAdd(false)}>
+          <div className="grid grid-cols-2 gap-4">
+            {([["Origin Port", "origin"], ["Destination Port", "destination"], ["Vessel Name", "vessel"], ["B/L Number", "bl_number"], ["Shipping Agent", "agent"], ["Freight Cost (৳)", "freight"]] as [string, string][]).map(([label, key]) => (
+              <Field key={key} label={label}>
+                <Input placeholder={label} value={(form as any)[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))} />
+              </Field>
+            ))}
+            <Field label="ETD"><Input type="date" value={form.etd} onChange={e => setForm(p => ({ ...p, etd: e.target.value }))} /></Field>
+            <Field label="ETA"><Input type="date" value={form.eta} onChange={e => setForm(p => ({ ...p, eta: e.target.value }))} /></Field>
+            <Field label="Status">
+              <Select value={form.status} onChange={e => setForm(p => ({ ...p, status: e.target.value }))}>
+                <option>In Transit</option><option>Delivered</option><option>Delayed</option>
+              </Select>
+            </Field>
+          </div>
+          <div className="flex gap-3 justify-end mt-6 pt-6 border-t border-white/10">
+            <button onClick={() => setShowAdd(false)} className="px-5 py-2.5 text-xs tracking-[0.2em] uppercase text-zinc-500 border border-white/10">Cancel</button>
+            <button onClick={handleAdd} disabled={saving} className="px-5 py-2.5 text-xs tracking-[0.2em] uppercase bg-white text-black font-semibold disabled:opacity-50">
+              {saving ? "Saving…" : "Create"}
+            </button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+};
+
+/* ══════════════════════════════════════════════════════════════
+   STAFF
+══════════════════════════════════════════════════════════════ */
 const Staff = () => {
-  const [showAdd,setShowAdd]=useState(false);
+  const [staff, setStaff] = useState<Staff[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ name: "", role: "", department: "Sales", email: "", phone: "", salary: "", join_date: "" });
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase.from("staff").select("*").order("created_at", { ascending: false });
+    setStaff(data || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleAdd = async () => {
+    setSaving(true);
+    const { error } = await supabase.from("staff").insert([{
+      id: `STF-${Date.now()}`, ...form, salary: parseInt(form.salary), status: "Active",
+    }]);
+    setSaving(false);
+    if (!error) { setShowAdd(false); load(); }
+    else alert("Error: " + error.message);
+  };
+
+  if (loading) return <Spinner />;
+
   return (
     <div className="space-y-6">
       <div className="flex items-end justify-between">
         <h1 className="text-2xl font-light text-white tracking-wide">Staff & HR</h1>
-        <button onClick={()=>setShowAdd(true)} className="px-5 py-2.5 bg-white text-black text-xs font-semibold tracking-[0.2em] uppercase hover:bg-zinc-200 transition-colors">+ Add Staff</button>
+        <button onClick={() => setShowAdd(true)} className="px-5 py-2.5 bg-white text-black text-xs font-semibold tracking-[0.2em] uppercase hover:bg-zinc-200">+ Add Staff</button>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-white/5">
-        {MOCK_STAFF.map(s=>(
+        {staff.map(s => (
           <div key={s.id} className="bg-[#0a0a0a] p-6 flex gap-4">
-            <div className="w-12 h-12 border border-white/20 flex items-center justify-center text-white text-lg font-light flex-shrink-0">{s.name[0]}</div>
+            <div className="w-12 h-12 border border-white/20 flex items-center justify-center text-white text-lg font-light flex-shrink-0">{s.name?.[0]}</div>
             <div className="flex-1">
               <div className="flex items-start justify-between">
-                <div><p className="text-white font-medium">{s.name}</p><p className="text-zinc-500 text-xs mt-0.5">{s.role} · {s.department}</p></div>
-                <Badge label={s.status}/>
+                <div>
+                  <p className="text-white font-medium">{s.name}</p>
+                  <p className="text-zinc-500 text-xs mt-0.5">{s.role} · {s.department}</p>
+                </div>
+                <Badge label={s.status} />
               </div>
               <p className="text-zinc-600 text-xs mt-2">{s.phone}</p>
               <div className="flex justify-between items-center mt-3 pt-3 border-t border-white/5">
-                <span className="text-xs text-zinc-600">Since {s.join}</span>
+                <span className="text-xs text-zinc-600">Since {s.join_date}</span>
                 <span className="text-white text-sm">{fmt(s.salary)}<span className="text-zinc-600 text-xs">/mo</span></span>
               </div>
             </div>
           </div>
         ))}
       </div>
-      {showAdd&&<Modal title="Add Staff" onClose={()=>setShowAdd(false)}>
-        <div className="grid grid-cols-2 gap-4">
-          {["Full Name","Role","Phone","Email","Monthly Salary (৳)","Join Date"].map(f=><Field key={f} label={f}><Input placeholder={f}/></Field>)}
-          <Field label="Department"><Select><option>Sales</option><option>Import</option><option>Finance</option><option>Operations</option></Select></Field>
-        </div>
-        <div className="flex gap-3 justify-end mt-6 pt-6 border-t border-white/10">
-          <button onClick={()=>setShowAdd(false)} className="px-5 py-2.5 text-xs tracking-[0.2em] uppercase text-zinc-500 border border-white/10">Cancel</button>
-          <button onClick={()=>setShowAdd(false)} className="px-5 py-2.5 text-xs tracking-[0.2em] uppercase bg-white text-black font-semibold">Add Staff</button>
-        </div>
-      </Modal>}
+      {showAdd && (
+        <Modal title="Add Staff" onClose={() => setShowAdd(false)}>
+          <div className="grid grid-cols-2 gap-4">
+            {([["Full Name", "name"], ["Role", "role"], ["Phone", "phone"], ["Email", "email"], ["Monthly Salary (৳)", "salary"]] as [string, string][]).map(([label, key]) => (
+              <Field key={key} label={label}>
+                <Input placeholder={label} value={(form as any)[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))} />
+              </Field>
+            ))}
+            <Field label="Join Date"><Input type="date" value={form.join_date} onChange={e => setForm(p => ({ ...p, join_date: e.target.value }))} /></Field>
+            <Field label="Department">
+              <Select value={form.department} onChange={e => setForm(p => ({ ...p, department: e.target.value }))}>
+                <option>Sales</option><option>Import</option><option>Finance</option><option>Operations</option>
+              </Select>
+            </Field>
+          </div>
+          <div className="flex gap-3 justify-end mt-6 pt-6 border-t border-white/10">
+            <button onClick={() => setShowAdd(false)} className="px-5 py-2.5 text-xs tracking-[0.2em] uppercase text-zinc-500 border border-white/10">Cancel</button>
+            <button onClick={handleAdd} disabled={saving} className="px-5 py-2.5 text-xs tracking-[0.2em] uppercase bg-white text-black font-semibold disabled:opacity-50">
+              {saving ? "Saving…" : "Add Staff"}
+            </button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };
 
-const Customs = () => (
-  <div className="space-y-6">
-    <h1 className="text-2xl font-light text-white tracking-wide">Customs & Duties</h1>
-    <div className="grid grid-cols-3 gap-px bg-white/5">
-      <StatCard label="Duties Paid (Cleared)" value={fmt(7510000)} />
-      <StatCard label="Pending Clearance" value="1 shipment" />
-      <StatCard label="Pending Tax Est." value={fmt(4302000)} />
-    </div>
-    <div className="space-y-px">
-      {[
-        {id:"CUS-CLR-001",ship:"SHP-001",total:7510000,cd:3100000,vat:1890000,sd:2100000,at:420000,status:"Cleared",agent:"Rahman C&F Associates",date:"2024-11-10"},
-        {id:"CUS-CLR-002",ship:"SHP-003",total:4302000,cd:1950000,vat:1176000,sd:980000,at:196000,status:"Processing",agent:"Alam C&F",date:null},
-      ].map(c=>(
-        <div key={c.id} className="bg-[#0a0a0a] border border-white/8 p-6">
-          <div className="flex justify-between items-start mb-4">
-            <div><div className="flex gap-3 items-center mb-1"><span className="font-mono text-xs text-zinc-500">{c.id}</span><Badge label={c.status}/></div>
-              <p className="text-white">Shipment: {c.ship}</p><p className="text-zinc-500 text-xs mt-1">Agent: {c.agent}</p></div>
-            <p className="text-white font-medium">{fmt(c.total)}</p>
-          </div>
-          <div className="grid grid-cols-4 gap-4 text-xs border-t border-white/5 pt-4">
-            {[["Customs Duty",c.cd],["VAT",c.vat],["Supp. Duty",c.sd],["Advance Tax",c.at]].map(([k,v])=>(
-              <div key={k}><p className="text-zinc-600 uppercase tracking-wider mb-1 text-[9px]">{k}</p><p className="text-white">{fmt(v)}</p></div>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  </div>
-);
+/* ══════════════════════════════════════════════════════════════
+   FINANCE
+══════════════════════════════════════════════════════════════ */
+const Finance = () => {
+  const [sales, setSales] = useState<Sale[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ category: "Shipping", amount: "", date: "", description: "", reference: "", paid_to: "" });
 
+  const load = useCallback(async () => {
+    setLoading(true);
+    const [s, e] = await Promise.all([
+      supabase.from("sales").select("*"),
+      supabase.from("expenses").select("*").order("date", { ascending: false }),
+    ]);
+    setSales(s.data || []);
+    setExpenses(e.data || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleAdd = async () => {
+    setSaving(true);
+    const { error } = await supabase.from("expenses").insert([{ ...form, amount: parseInt(form.amount) }]);
+    setSaving(false);
+    if (!error) { setShowAdd(false); load(); }
+    else alert("Error: " + error.message);
+  };
+
+  if (loading) return <Spinner />;
+
+  const rev = sales.reduce((a, s) => a + (s.sale_price || 0), 0);
+  const exp = expenses.reduce((a, e) => a + (e.amount || 0), 0);
+  const cats = [...new Set(expenses.map(e => e.category))];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-end justify-between">
+        <h1 className="text-2xl font-light text-white tracking-wide">Finance</h1>
+        <button onClick={() => setShowAdd(true)} className="px-5 py-2.5 bg-white text-black text-xs font-semibold tracking-[0.2em] uppercase hover:bg-zinc-200">+ Add Expense</button>
+      </div>
+      <div className="grid grid-cols-3 gap-px bg-white/5">
+        <StatCard label="Total Revenue" value={fmt(rev)} />
+        <StatCard label="Total Expenses" value={fmt(exp)} />
+        <StatCard label="Net Profit" value={fmt(rev - exp)} />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-px bg-white/5">
+        <div className="bg-[#0a0a0a] p-6">
+          <p className="text-[10px] font-semibold tracking-[0.25em] uppercase text-zinc-500 mb-5">Expenses by Category</p>
+          {cats.map(cat => {
+            const total = expenses.filter(e => e.category === cat).reduce((a, e) => a + e.amount, 0);
+            const pct = exp ? Math.round((total / exp) * 100) : 0;
+            return (
+              <div key={cat} className="mb-4">
+                <div className="flex justify-between text-xs mb-2">
+                  <span className="text-zinc-300">{cat}</span>
+                  <span className="text-zinc-600">{fmt(total)}</span>
+                </div>
+                <div className="h-px bg-white/8"><div className="h-px bg-white" style={{ width: `${pct}%` }} /></div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="bg-[#0a0a0a] p-6">
+          <p className="text-[10px] font-semibold tracking-[0.25em] uppercase text-zinc-500 mb-5">Recent Expenses</p>
+          {expenses.slice(0, 8).map(e => (
+            <div key={e.id} className="flex justify-between items-center py-3 border-b border-white/5">
+              <div>
+                <p className="text-zinc-300 text-xs">{e.description}</p>
+                <p className="text-zinc-600 text-xs">{e.category} · {e.date}</p>
+              </div>
+              <p className="text-white text-sm">-{fmt(e.amount)}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+      {showAdd && (
+        <Modal title="Add Expense" onClose={() => setShowAdd(false)}>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Category">
+              <Select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))}>
+                {["Shipping", "Customs & Taxes", "Staff Salary", "Showroom Rent", "Insurance", "Marketing", "Maintenance", "Other"].map(c => <option key={c}>{c}</option>)}
+              </Select>
+            </Field>
+            <Field label="Amount (৳)"><Input placeholder="Amount" value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} /></Field>
+            <Field label="Date"><Input type="date" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))} /></Field>
+            <Field label="Paid To"><Input placeholder="Recipient" value={form.paid_to} onChange={e => setForm(p => ({ ...p, paid_to: e.target.value }))} /></Field>
+            <Field label="Reference"><Input placeholder="e.g. SHP-001" value={form.reference} onChange={e => setForm(p => ({ ...p, reference: e.target.value }))} /></Field>
+            <div className="col-span-2"><Field label="Description"><Input placeholder="Description" value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} /></Field></div>
+          </div>
+          <div className="flex gap-3 justify-end mt-6 pt-6 border-t border-white/10">
+            <button onClick={() => setShowAdd(false)} className="px-5 py-2.5 text-xs tracking-[0.2em] uppercase text-zinc-500 border border-white/10">Cancel</button>
+            <button onClick={handleAdd} disabled={saving} className="px-5 py-2.5 text-xs tracking-[0.2em] uppercase bg-white text-black font-semibold disabled:opacity-50">
+              {saving ? "Saving…" : "Add Expense"}
+            </button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+};
+
+/* ══════════════════════════════════════════════════════════════
+   ENQUIRIES
+══════════════════════════════════════════════════════════════ */
+const Enquiries = () => {
+  const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.from("enquiries").select("*").order("created_at", { ascending: false })
+      .then(({ data }) => { setEnquiries(data || []); setLoading(false); });
+  }, []);
+
+  const updateStatus = async (id: number, status: string) => {
+    await supabase.from("enquiries").update({ status }).eq("id", id);
+    setEnquiries(p => p.map(e => e.id === id ? { ...e, status } : e));
+  };
+
+  if (loading) return <Spinner />;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-light text-white tracking-wide">Website Enquiries</h1>
+        <p className="text-zinc-500 text-sm mt-1">{enquiries.length} total · {enquiries.filter(e => e.status === "new").length} new</p>
+      </div>
+      <div className="border border-white/10">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-white/8">
+              {["Name", "Phone", "Email", "Type", "Vehicle", "Message", "Date", "Status", ""].map(h => (
+                <th key={h} className="text-left text-[9px] font-semibold tracking-[0.25em] uppercase text-zinc-600 px-4 py-3">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {enquiries.length === 0 && (
+              <tr><td colSpan={9} className="px-4 py-8 text-center text-zinc-600 text-sm">No enquiries yet.</td></tr>
+            )}
+            {enquiries.map(e => (
+              <tr key={e.id} className="border-b border-white/5 hover:bg-white/2">
+                <td className="px-4 py-3 text-white text-xs font-medium">{e.name}</td>
+                <td className="px-4 py-3 text-zinc-400 text-xs">{e.phone}</td>
+                <td className="px-4 py-3 text-zinc-400 text-xs">{e.email}</td>
+                <td className="px-4 py-3"><Badge label={e.type} /></td>
+                <td className="px-4 py-3 text-zinc-500 text-xs font-mono">{e.vehicle_id || "—"}</td>
+                <td className="px-4 py-3 text-zinc-500 text-xs max-w-xs truncate">{e.message}</td>
+                <td className="px-4 py-3 text-zinc-600 text-xs">{new Date(e.created_at).toLocaleDateString()}</td>
+                <td className="px-4 py-3"><Badge label={e.status} /></td>
+                <td className="px-4 py-3">
+                  {e.status === "new" && (
+                    <button onClick={() => updateStatus(e.id, "contacted")} className="text-[9px] uppercase tracking-wider text-zinc-600 border border-white/10 px-2 py-1 hover:border-white/30 hover:text-white transition-all">
+                      Mark Contacted
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+/* ══════════════════════════════════════════════════════════════
+   WEBSITE CMS
+══════════════════════════════════════════════════════════════ */
 const WebsiteCMS = () => {
-  const [hero,setHero]=useState("Where Luxury Meets the Open Road");
-  const [sub,setSub]=useState("We import the world's most coveted automobiles — directly sourced from Japan, Germany, UK and USA.");
-  const [featured,setFeatured]=useState<string[]>(MOCK_INVENTORY.filter(c=>c.featured).map(c=>c.id));
-  const [saved,setSaved]=useState(false);
-  const toggle=(id: string)=>setFeatured(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
-  const save=()=>{setSaved(true);setTimeout(()=>setSaved(false),2500);};
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [settings, setSettings] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    const load = async () => {
+      const [v, s] = await Promise.all([
+        supabase.from("vehicles").select("*"),
+        supabase.from("site_settings").select("*"),
+      ]);
+      setVehicles(v.data || []);
+      const map: Record<string, string> = {};
+      (s.data || []).forEach((r: any) => { map[r.key] = r.value; });
+      setSettings(map);
+      setLoading(false);
+    };
+    load();
+  }, []);
+
+  const toggleFeatured = async (id: string, current: boolean) => {
+    await supabase.from("vehicles").update({ featured: !current }).eq("id", id);
+    setVehicles(p => p.map(v => v.id === id ? { ...v, featured: !current } : v));
+  };
+
+  const saveSetting = async (key: string, value: string) => {
+    setSettings(p => ({ ...p, [key]: value }));
+    await supabase.from("site_settings").upsert({ key, value, updated_at: new Date().toISOString() });
+  };
+
+  const saveAll = async () => {
+    setSaving(true);
+    await Promise.all(Object.entries(settings).map(([key, value]) =>
+      supabase.from("site_settings").upsert({ key, value, updated_at: new Date().toISOString() })
+    ));
+    setSaving(false); setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  };
+
+  if (loading) return <Spinner />;
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-light text-white tracking-wide">Website CMS</h1>
-        <p className="text-zinc-500 text-sm mt-1">Manage content displayed on the public website</p>
+        <p className="text-zinc-500 text-sm mt-1">Changes save directly to the live website database</p>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-px bg-white/5">
         <div className="bg-[#0a0a0a] p-6">
           <p className="text-[10px] font-semibold tracking-[0.25em] uppercase text-zinc-500 mb-5">Hero Section</p>
           <div className="space-y-4">
-            <Field label="Hero Headline"><Input value={hero} onChange={e=>setHero(e.target.value)}/></Field>
+            <Field label="Hero Headline">
+              <input className="w-full bg-black border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/40 placeholder-zinc-600" value={settings.hero_title || ""} onChange={e => setSettings(p => ({ ...p, hero_title: e.target.value }))} />
+            </Field>
             <Field label="Hero Subtitle">
-              <textarea value={sub} onChange={e=>setSub(e.target.value)} rows={3} className="w-full bg-black border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/40 resize-none placeholder-zinc-600"/>
+              <textarea rows={3} className="w-full bg-black border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/40 resize-none" value={settings.hero_subtitle || ""} onChange={e => setSettings(p => ({ ...p, hero_subtitle: e.target.value }))} />
             </Field>
           </div>
         </div>
         <div className="bg-[#0a0a0a] p-6">
           <p className="text-[10px] font-semibold tracking-[0.25em] uppercase text-zinc-500 mb-5">Contact Info</p>
           <div className="space-y-3">
-            {["Showroom Address","Phone Number","Email Address","Business Hours","Google Maps URL"].map(f=>(
-              <Field key={f} label={f}><Input placeholder={f}/></Field>
+            {([["Showroom Address", "showroom_address"], ["Phone Number", "phone"], ["Email Address", "email"], ["Business Hours", "business_hours"]] as [string, string][]).map(([label, key]) => (
+              <Field key={key} label={label}>
+                <input className="w-full bg-black border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/40 placeholder-zinc-600" placeholder={label} value={settings[key] || ""} onChange={e => setSettings(p => ({ ...p, [key]: e.target.value }))} />
+              </Field>
             ))}
           </div>
         </div>
         <div className="lg:col-span-2 bg-[#0a0a0a] p-6">
-          <p className="text-[10px] font-semibold tracking-[0.25em] uppercase text-zinc-500 mb-5">Featured Vehicles (Homepage)</p>
+          <p className="text-[10px] font-semibold tracking-[0.25em] uppercase text-zinc-500 mb-5">Featured Vehicles on Homepage</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            {MOCK_INVENTORY.map(car=>(
-              <button key={car.id} onClick={()=>toggle(car.id)} className={`p-3 text-left border transition-all ${featured.includes(car.id)?"border-white bg-white/8":"border-white/10 hover:border-white/30"}`}>
+            {vehicles.map(car => (
+              <button key={car.id} onClick={() => toggleFeatured(car.id, car.featured)} className={`p-3 text-left border transition-all ${car.featured ? "border-white bg-white/8" : "border-white/10 hover:border-white/30"}`}>
                 <p className="text-white text-xs font-medium">{car.make} {car.model}</p>
                 <p className="text-zinc-500 text-xs mt-0.5">{car.year} · {car.status}</p>
-                {featured.includes(car.id)&&<p className="text-white text-xs mt-1 font-semibold">✓ Featured</p>}
+                {car.featured && <p className="text-white text-xs mt-1 font-semibold">✓ Featured</p>}
               </button>
             ))}
           </div>
         </div>
         <div className="bg-[#0a0a0a] p-6">
-          <p className="text-[10px] font-semibold tracking-[0.25em] uppercase text-zinc-500 mb-5">SEO Settings</p>
+          <p className="text-[10px] font-semibold tracking-[0.25em] uppercase text-zinc-500 mb-5">Announcement Banner</p>
           <div className="space-y-3">
-            {["Page Title","Meta Description","Keywords"].map(f=><Field key={f} label={f}><Input placeholder={f}/></Field>)}
+            <Field label="Banner Text">
+              <input className="w-full bg-black border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/40 placeholder-zinc-600" placeholder="e.g. New arrivals — March 2025" value={settings.announcement_text || ""} onChange={e => setSettings(p => ({ ...p, announcement_text: e.target.value }))} />
+            </Field>
+            <div className="flex items-center gap-3 mt-2">
+              <input type="checkbox" id="annActive" checked={settings.announcement_active === "true"} onChange={e => setSettings(p => ({ ...p, announcement_active: e.target.checked ? "true" : "false" }))} className="accent-white" />
+              <label htmlFor="annActive" className="text-xs text-zinc-500 tracking-wider uppercase cursor-pointer">Show Banner on Website</label>
+            </div>
           </div>
         </div>
         <div className="bg-[#0a0a0a] p-6">
-          <p className="text-[10px] font-semibold tracking-[0.25em] uppercase text-zinc-500 mb-5">Announcement Banner</p>
+          <p className="text-[10px] font-semibold tracking-[0.25em] uppercase text-zinc-500 mb-5">SEO</p>
           <div className="space-y-3">
-            <Field label="Banner Text"><Input placeholder="e.g. New arrivals from Japan — arriving March 2025"/></Field>
-            <Field label="Banner Link"><Input placeholder="https://…"/></Field>
-            <div className="flex items-center gap-3 mt-2">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <div className="w-8 h-4 bg-white/20 border border-white/20 relative"><div className="absolute left-0.5 top-0.5 w-3 h-3 bg-white transition-all"/></div>
-                <span className="text-xs text-zinc-500 tracking-wider uppercase">Show Banner</span>
-              </label>
-            </div>
+            {([["Page Title", "seo_title"], ["Meta Description", "seo_description"], ["Keywords", "seo_keywords"]] as [string, string][]).map(([label, key]) => (
+              <Field key={key} label={label}>
+                <input className="w-full bg-black border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/40 placeholder-zinc-600" placeholder={label} value={settings[key] || ""} onChange={e => setSettings(p => ({ ...p, [key]: e.target.value }))} />
+              </Field>
+            ))}
           </div>
         </div>
       </div>
       <div className="flex justify-end">
-        <button onClick={save} className={`px-8 py-3 text-xs font-semibold tracking-[0.25em] uppercase transition-all ${saved?"bg-zinc-700 text-zinc-300":"bg-white text-black hover:bg-zinc-200"}`}>
-          {saved?"✓ Saved":"Save Changes"}
+        <button onClick={saveAll} disabled={saving} className={`px-8 py-3 text-xs font-semibold tracking-[0.25em] uppercase transition-all disabled:opacity-50 ${saved ? "bg-zinc-700 text-zinc-300" : "bg-white text-black hover:bg-zinc-200"}`}>
+          {saving ? "Saving…" : saved ? "✓ Saved to Database" : "Save All Changes"}
         </button>
       </div>
     </div>
   );
 };
 
+/* ══════════════════════════════════════════════════════════════
+   CUSTOMS, REPORTS, SETTINGS (static UI)
+══════════════════════════════════════════════════════════════ */
+const Customs = () => (
+  <div className="space-y-6">
+    <h1 className="text-2xl font-light text-white tracking-wide">Customs & Duties</h1>
+    <p className="text-zinc-600 text-sm">Link customs clearance records to shipments. Add via Supabase dashboard or extend this section.</p>
+  </div>
+);
+
 const Reports = () => (
   <div className="space-y-6">
     <h1 className="text-2xl font-light text-white tracking-wide">Reports</h1>
     <div className="flex gap-2 flex-wrap">
-      {["This Month","Last Month","Q1 2025","FY 2024–25","Custom Range"].map(r=>(
+      {["This Month", "Last Month", "Q1 2025", "FY 2024–25"].map(r => (
         <button key={r} className="px-4 py-2 text-[10px] font-semibold tracking-[0.2em] uppercase bg-[#0a0a0a] text-zinc-500 border border-white/10 hover:border-white/30 hover:text-white transition-all">{r}</button>
       ))}
     </div>
     <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-white/5">
-      {[
-        ["Monthly Sales Report","Revenue, units sold, salesperson performance"],
-        ["Inventory Valuation","Current stock value and holding costs"],
-        ["Import Cost Analysis","Shipping, customs, duties per unit"],
-        ["Profit & Loss Statement","Full P&L with all categories"],
-        ["Customer Activity Report","Leads, conversion, repeat buyers"],
-        ["Tax & Compliance Report","NBR duties, VAT, advance tax"],
-        ["Staff Payroll Report","Monthly salary disbursement"],
-        ["Vehicle Aging Report","Days in stock per vehicle"],
-      ].map(([name,desc])=>(
-        <div key={name} className="bg-[#0a0a0a] p-6 flex items-center justify-between group hover:bg-white/2 transition-colors cursor-pointer border-r border-b border-white/0">
+      {[["Monthly Sales Report", "Revenue, units sold, salesperson performance"], ["Inventory Valuation", "Current stock value and holding costs"], ["Import Cost Analysis", "Shipping, customs, duties per unit"], ["Profit & Loss Statement", "Full P&L with all categories"], ["Customer Activity Report", "Leads, conversion, repeat buyers"], ["Tax & Compliance Report", "NBR duties, VAT, advance tax"], ["Staff Payroll Report", "Monthly salary disbursement"], ["Vehicle Aging Report", "Days in stock per vehicle"]].map(([name, desc]) => (
+        <div key={name} className="bg-[#0a0a0a] p-6 flex items-center justify-between group hover:bg-white/2 transition-colors cursor-pointer">
           <div>
             <p className="text-white text-sm font-medium">{name}</p>
             <p className="text-zinc-600 text-xs mt-1">{desc}</p>
@@ -603,16 +1168,16 @@ const Settings = () => (
   <div className="space-y-6">
     <h1 className="text-2xl font-light text-white tracking-wide">Settings</h1>
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-px bg-white/5">
-      {[
-        {title:"Company Profile",fields:["Company Name","Trade License No","TIN Number","VAT Registration","Registered Address"]},
-        {title:"Showroom Details",fields:["Showroom Name","Address","Phone","Email","Business Hours"]},
-        {title:"Bank Accounts",fields:["Bank Name","Account No","Branch","Routing No","SWIFT Code"]},
-        {title:"System Preferences",fields:["Default Currency","Timezone","Date Format","Language"]},
-      ].map(sec=>(
+      {[{ title: "Company Profile", fields: ["Company Name", "Trade License No", "TIN Number", "VAT Registration", "Registered Address"] }, { title: "Showroom Details", fields: ["Showroom Name", "Address", "Phone", "Email", "Business Hours"] }, { title: "Bank Accounts", fields: ["Bank Name", "Account No", "Branch", "Routing No", "SWIFT Code"] }, { title: "System Preferences", fields: ["Default Currency", "Timezone", "Date Format", "Language"] }].map(sec => (
         <div key={sec.title} className="bg-[#0a0a0a] p-6">
           <p className="text-[10px] font-semibold tracking-[0.25em] uppercase text-zinc-500 mb-5">{sec.title}</p>
           <div className="space-y-4">
-            {sec.fields.map(f=><Field key={f} label={f}><Input placeholder={f==="Company Name"?"Car House Imports Ltd.":f}/></Field>)}
+            {sec.fields.map(f => (
+              <div key={f}>
+                <label className="block text-[10px] font-semibold tracking-[0.2em] uppercase text-zinc-500 mb-2">{f}</label>
+                <input placeholder={f === "Company Name" ? "Car House Imports Ltd." : f} className="w-full bg-black border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/40 placeholder-zinc-600" />
+              </div>
+            ))}
           </div>
           <button className="mt-5 px-5 py-2.5 bg-white text-black text-xs font-semibold tracking-[0.2em] uppercase hover:bg-zinc-200 transition-colors">Save</button>
         </div>
@@ -622,112 +1187,98 @@ const Settings = () => (
 );
 
 /* ══════════════════════════════════════════════════════════════
-   NAV CONFIG
+   NAV
 ══════════════════════════════════════════════════════════════ */
 const NAV = [
-  {id:"dashboard",label:"Dashboard",icon:"◈"},
-  {id:"inventory",label:"Inventory",icon:"◻"},
-  {id:"sales",label:"Sales",icon:"◇"},
-  {id:"customers",label:"Customers",icon:"○"},
-  {id:"shipments",label:"Shipments",icon:"△"},
-  {id:"customs",label:"Customs & Duties",icon:"⬡"},
-  {id:"finance",label:"Finance",icon:"◎"},
-  {id:"staff",label:"Staff & HR",icon:"◉"},
-  {id:"website",label:"Website CMS",icon:"◈"},
-  {id:"reports",label:"Reports",icon:"▣"},
-  {id:"settings",label:"Settings",icon:"⊙"},
+  { id: "dashboard", label: "Dashboard", icon: "◈" },
+  { id: "inventory", label: "Inventory", icon: "◻" },
+  { id: "sales", label: "Sales", icon: "◇" },
+  { id: "customers", label: "Customers", icon: "○" },
+  { id: "shipments", label: "Shipments", icon: "△" },
+  { id: "enquiries", label: "Enquiries", icon: "✉" },
+  { id: "finance", label: "Finance", icon: "◎" },
+  { id: "staff", label: "Staff & HR", icon: "◉" },
+  { id: "website", label: "Website CMS", icon: "⊞" },
+  { id: "customs", label: "Customs", icon: "⬡" },
+  { id: "reports", label: "Reports", icon: "▣" },
+  { id: "settings", label: "Settings", icon: "⊙" },
 ];
 
 /* ══════════════════════════════════════════════════════════════
-   LOGIN
+   MAIN PAGE
 ══════════════════════════════════════════════════════════════ */
-const Login = ({ onLogin }: { onLogin: () => void }) => {
-  const [u,setU]=useState("");const [p,setP]=useState("");const [err,setErr]=useState("");
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-black">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-10">
-          <svg className="mx-auto mb-4" height="44" viewBox="0 0 260 72" fill="none">
-            <rect x="1" y="1" width="70" height="70" rx="2" stroke="white" strokeWidth="1.5" fill="none"/>
-            <text x="14" y="54" fontFamily="serif" fontWeight="300" fontSize="52" fill="white">H</text>
-            <line x1="71" y1="16" x2="90" y2="16" stroke="white" strokeWidth="1.5"/>
-            <line x1="71" y1="56" x2="90" y2="56" stroke="white" strokeWidth="1.5"/>
-            <rect x="90" y="10" width="168" height="52" rx="2" stroke="white" strokeWidth="1.5" fill="none"/>
-            <text x="104" y="38" fontFamily="sans-serif" fontWeight="700" fontSize="20" fill="white" letterSpacing="3">CAR HOUSE</text>
-            <text x="118" y="54" fontFamily="sans-serif" fontWeight="400" fontSize="11" fill="white" letterSpacing="4">IMPORTS LTD.</text>
-          </svg>
-          <p className="text-zinc-600 text-xs tracking-[0.3em] uppercase">Management System</p>
-        </div>
-        <div className="border border-white/10 p-8 bg-[#0a0a0a]">
-          <div className="space-y-4">
-            <Field label="Username"><Input value={u} onChange={e=>setU(e.target.value)} placeholder="admin"/></Field>
-            <Field label="Password"><Input type="password" value={p} onChange={e=>setP(e.target.value)} placeholder="••••••••" onKeyDown={e=>e.key==="Enter"&&(u==="admin"&&p==="admin123"?onLogin():setErr("Invalid credentials"))}/></Field>
-            {err&&<p className="text-xs text-zinc-400 tracking-wide">{err}</p>}
-            <button onClick={()=>u==="admin"&&p==="admin123"?onLogin():setErr("Invalid credentials")} className="w-full py-3 bg-white text-black text-xs font-semibold tracking-[0.25em] uppercase hover:bg-zinc-200 transition-colors mt-2">Sign In</button>
-          </div>
-          <p className="text-center text-zinc-700 text-xs mt-5 tracking-wider">Demo: admin / admin123</p>
-        </div>
-      </div>
+export default function Page() {
+  const [active, setActive] = useState("dashboard");
+  const [collapsed, setCollapsed] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) { router.push("/login"); }
+      else { setUser(session.user); setLoading(false); }
+    });
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
+
+  if (loading) return (
+    <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="w-6 h-6 border border-white/20 border-t-white rounded-full animate-spin" />
     </div>
   );
-};
 
-/* ══════════════════════════════════════════════════════════════
-   APP
-══════════════════════════════════════════════════════════════ */
-export default function Page(){
-  const [loggedIn,setLoggedIn]=useState(false);
-  const [active,setActive]=useState("dashboard");
-  const [collapsed,setCollapsed]=useState(false);
-
-  if(!loggedIn) return <Login onLogin={()=>setLoggedIn(true)}/>;
-
-  const PAGES: Record<string, React.ReactNode> = {dashboard:<Dashboard/>,inventory:<Inventory/>,sales:<Sales/>,customers:<Customers/>,shipments:<Shipments/>,customs:<Customs/>,finance:<Finance/>,staff:<Staff/>,website:<WebsiteCMS/>,reports:<Reports/>,settings:<Settings/>};
+  const PAGES: Record<string, React.ReactNode> = {
+    dashboard: <Dashboard />, inventory: <Inventory />, sales: <Sales />,
+    customers: <Customers />, shipments: <Shipments />, enquiries: <Enquiries />,
+    finance: <Finance />, staff: <Staff />, website: <WebsiteCMS />,
+    customs: <Customs />, reports: <Reports />, settings: <Settings />,
+  };
 
   return (
-    <div className="min-h-screen flex bg-black text-white" style={{fontFamily:"'Barlow',system-ui,sans-serif"}}>
-      {/* Sidebar */}
-      <aside className={`${collapsed?"w-14":"w-56"} flex-shrink-0 border-r border-white/8 flex flex-col transition-all duration-300 bg-[#080808]`}>
+    <div className="min-h-screen flex bg-black text-white" style={{ fontFamily: "'Barlow',system-ui,sans-serif" }}>
+      <aside className={`${collapsed ? "w-14" : "w-56"} flex-shrink-0 border-r border-white/8 flex flex-col transition-all duration-300 bg-[#080808]`}>
         <div className="p-4 border-b border-white/8 flex items-center gap-3 h-16">
-          {!collapsed&&<div>
-            <p className="text-white text-xs font-semibold tracking-[0.15em] uppercase">Car House</p>
-            <p className="text-zinc-600 text-[9px] tracking-[0.2em] uppercase">Imports Ltd.</p>
-          </div>}
+          {!collapsed && (
+            <div>
+              <p className="text-white text-xs font-semibold tracking-[0.15em] uppercase">Car House</p>
+              <p className="text-zinc-600 text-[9px] tracking-[0.2em] uppercase">Imports Ltd.</p>
+            </div>
+          )}
         </div>
         <nav className="flex-1 p-2 overflow-y-auto">
-          {NAV.map(n=>(
-            <button key={n.id} onClick={()=>setActive(n.id)} title={collapsed?n.label:""} className={`w-full flex items-center gap-3 px-3 py-2.5 mb-0.5 transition-all text-left ${active===n.id?"bg-white text-black":"text-zinc-500 hover:text-white hover:bg-white/5"}`}>
+          {NAV.map(n => (
+            <button key={n.id} onClick={() => setActive(n.id)} title={collapsed ? n.label : ""} className={`w-full flex items-center gap-3 px-3 py-2.5 mb-0.5 transition-all text-left ${active === n.id ? "bg-white text-black" : "text-zinc-500 hover:text-white hover:bg-white/5"}`}>
               <span className="text-sm flex-shrink-0">{n.icon}</span>
-              {!collapsed&&<span className="text-[11px] font-medium tracking-[0.12em] uppercase">{n.label}</span>}
+              {!collapsed && <span className="text-[11px] font-medium tracking-[0.12em] uppercase">{n.label}</span>}
             </button>
           ))}
         </nav>
         <div className="p-2 border-t border-white/8">
-          <button onClick={()=>setCollapsed(!collapsed)} className="w-full flex items-center gap-3 px-3 py-2.5 text-zinc-600 hover:text-white hover:bg-white/5 transition-all">
-            <span className="text-sm">{collapsed?"→":"←"}</span>
-            {!collapsed&&<span className="text-[10px] tracking-[0.15em] uppercase">Collapse</span>}
+          <button onClick={() => setCollapsed(!collapsed)} className="w-full flex items-center gap-3 px-3 py-2.5 text-zinc-600 hover:text-white hover:bg-white/5 transition-all">
+            <span className="text-sm">{collapsed ? "→" : "←"}</span>
+            {!collapsed && <span className="text-[10px] tracking-[0.15em] uppercase">Collapse</span>}
           </button>
-          <button onClick={()=>setLoggedIn(false)} className="w-full flex items-center gap-3 px-3 py-2.5 text-zinc-600 hover:text-white hover:bg-white/5 transition-all">
+          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2.5 text-zinc-600 hover:text-white hover:bg-white/5 transition-all">
             <span className="text-sm">↑</span>
-            {!collapsed&&<span className="text-[10px] tracking-[0.15em] uppercase">Logout</span>}
+            {!collapsed && <span className="text-[10px] tracking-[0.15em] uppercase">Logout</span>}
           </button>
         </div>
       </aside>
-
-      {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
         <header className="h-16 border-b border-white/8 flex items-center justify-between px-8 bg-[#080808]">
+          <p className="text-[10px] font-semibold tracking-[0.25em] uppercase text-zinc-500">
+            {NAV.find(n => n.id === active)?.label}
+          </p>
           <div className="flex items-center gap-4">
-            <p className="text-[10px] font-semibold tracking-[0.25em] uppercase text-zinc-500">
-              {NAV.find(n=>n.id===active)?.label}
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 border border-white/10 px-3 py-1.5 bg-black hidden md:flex">
-              <span className="text-zinc-600 text-xs">⌕</span>
-              <input placeholder="Quick search…" className="bg-transparent text-xs text-white placeholder-zinc-600 outline-none w-28"/>
+            <span className="text-zinc-600 text-xs hidden md:block">{user?.email}</span>
+            <div className="w-7 h-7 border border-white/20 flex items-center justify-center text-white text-xs font-light">
+              {user?.email?.[0]?.toUpperCase()}
             </div>
-            <div className="w-7 h-7 border border-white/20 flex items-center justify-center text-white text-xs font-light">A</div>
           </div>
         </header>
         <main className="flex-1 overflow-y-auto p-8">
