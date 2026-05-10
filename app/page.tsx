@@ -2389,36 +2389,48 @@ const DocumentVault = () => {
    NAV
 ══════════════════════════════════════════════════════════════ */
 const NAV_GROUPS = [
-  { label: "Overview", items: [
-    { id: "dashboard", label: "Dashboard", icon: "◈" },
-    { id: "analytics", label: "Analytics", icon: "▥" },
-  ]},
-  { label: "Operations", items: [
-    { id: "inventory", label: "Inventory", icon: "◻" },
-    { id: "sales", label: "Sales", icon: "◇" },
-    { id: "shipments", label: "Shipments", icon: "△" },
-    { id: "customs", label: "Customs", icon: "⬡" },
-  ]},
-  { label: "Import Tools", items: [
-    { id: "landedCost", label: "Cost Calc", icon: "⊕" },
-    { id: "nbrDuty", label: "NBR Duty", icon: "⊜" },
-    { id: "invoice", label: "Invoices", icon: "▤" },
-    { id: "installments", label: "Installments", icon: "◷" },
-    { id: "vault", label: "Documents", icon: "◩" },
-  ]},
-  { label: "People", items: [
-    { id: "customers", label: "Customers", icon: "○" },
-    { id: "enquiries", label: "Enquiries", icon: "✉" },
-    { id: "staff", label: "Staff & HR", icon: "◉" },
-  ]},
-  { label: "Finance", items: [
-    { id: "finance", label: "Finance", icon: "◎" },
-    { id: "reports", label: "Reports", icon: "▣" },
-  ]},
-  { label: "System", items: [
-    { id: "website", label: "Website CMS", icon: "⊞" },
-    { id: "settings", label: "Settings", icon: "⊙" },
-  ]},
+  {
+    label: "Overview", items: [
+      { id: "dashboard", label: "Dashboard", icon: "◈" },
+      { id: "analytics", label: "Analytics", icon: "▥" },
+    ]
+  },
+  {
+    label: "Operations", items: [
+      { id: "inventory", label: "Inventory", icon: "◻" },
+      { id: "sales", label: "Sales", icon: "◇" },
+      { id: "shipments", label: "Shipments", icon: "△" },
+      { id: "customs", label: "Customs", icon: "⬡" },
+    ]
+  },
+  {
+    label: "Import Tools", items: [
+      { id: "landedCost", label: "Cost Calc", icon: "⊕" },
+      { id: "nbrDuty", label: "NBR Duty", icon: "⊜" },
+      { id: "invoice", label: "Invoices", icon: "▤" },
+      { id: "installments", label: "Installments", icon: "◷" },
+      { id: "vault", label: "Documents", icon: "◩" },
+    ]
+  },
+  {
+    label: "People", items: [
+      { id: "customers", label: "Customers", icon: "○" },
+      { id: "enquiries", label: "Enquiries", icon: "✉" },
+      { id: "staff", label: "Staff & HR", icon: "◉" },
+    ]
+  },
+  {
+    label: "Finance", items: [
+      { id: "finance", label: "Finance", icon: "◎" },
+      { id: "reports", label: "Reports", icon: "▣" },
+    ]
+  },
+  {
+    label: "System", items: [
+      { id: "website", label: "Website CMS", icon: "⊞" },
+      { id: "settings", label: "Settings", icon: "⊙" },
+    ]
+  },
 ];
 const NAV = NAV_GROUPS.flatMap(g => g.items);
 
@@ -2470,11 +2482,11 @@ export default function Page() {
             </div>
           )}
         </div>
-        <nav className="flex-1 overflow-y-auto" style={{padding:"6px"}}>
+        <nav className="flex-1 overflow-y-auto" style={{ padding: "8px" }}>
           {NAV_GROUPS.map(group => (
-            <div key={group.label} style={{marginBottom:2}}>
+            <div key={group.label} style={{ marginBottom: 4 }}>
               {!collapsed && (
-                <p style={{fontSize:9,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"var(--text-muted)",padding:"8px 10px 3px",userSelect:"none"}}>
+                <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "rgba(255,255,255,0.25)", padding: "10px 12px 4px", userSelect: "none" }}>
                   {group.label}
                 </p>
               )}
@@ -2484,22 +2496,22 @@ export default function Page() {
                   <button key={n.id} onClick={() => setActive(n.id)} title={collapsed ? n.label : ""}
                     className="w-full flex items-center text-left transition-all"
                     style={{
-                      gap:8, padding: collapsed ? "7px 14px" : "7px 10px",
-                      marginBottom:1, borderRadius:5, border:"none", cursor:"pointer",
-                      background: isActive ? "rgba(201,168,76,0.12)" : "transparent",
-                      color: isActive ? "#c9a84c" : "#6b7590",
-                      fontFamily:"inherit", fontSize:11, fontWeight: isActive ? 600 : 400,
+                      gap: 10, padding: collapsed ? "9px 14px" : "9px 12px",
+                      marginBottom: 2, borderRadius: 6, border: "none", cursor: "pointer",
+                      background: isActive ? "rgba(201,168,76,0.14)" : "transparent",
+                      color: isActive ? "#c9a84c" : "rgba(255,255,255,0.55)",
+                      fontFamily: "inherit", fontSize: 12.5, fontWeight: isActive ? 600 : 400,
                       borderLeft: isActive ? "2px solid #c9a84c" : "2px solid transparent",
                     }}
-                    onMouseEnter={e => { if(!isActive){(e.currentTarget as HTMLElement).style.background="var(--bg-raised)";(e.currentTarget as HTMLElement).style.color="var(--text-secondary)";}}}
-                    onMouseLeave={e => { if(!isActive){(e.currentTarget as HTMLElement).style.background="transparent";(e.currentTarget as HTMLElement).style.color="#6b7590";}}}
+                    onMouseEnter={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.85)"; } }}
+                    onMouseLeave={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.55)"; } }}
                   >
-                    <span style={{fontSize:12,flexShrink:0,width:14,textAlign:"center"}}>{n.icon}</span>
-                    {!collapsed && <span style={{whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{n.label}</span>}
+                    <span style={{ fontSize: 13, flexShrink: 0, width: 16, textAlign: "center" }}>{n.icon}</span>
+                    {!collapsed && <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{n.label}</span>}
                   </button>
                 );
               })}
-              {!collapsed && <div style={{height:1,background:"rgba(255,255,255,0.06)",margin:"4px 8px"}}/>}
+              {!collapsed && <div style={{ height: 1, background: "rgba(255,255,255,0.07)", margin: "6px 10px" }} />}
             </div>
           ))}
         </nav>
