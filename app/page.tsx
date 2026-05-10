@@ -2440,6 +2440,10 @@ const NAV = NAV_GROUPS.flatMap(g => g.items);
 export default function Page() {
   const [active, setActive] = useState("dashboard");
   const [collapsed, setCollapsed] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<string[]>(["Overview", "Operations", "People", "Finance", "System", "Import Tools"]);
+  const toggleGroup = (label: string) => {
+    setExpandedGroups(p => p.includes(label) ? p.filter(g => g !== label) : [...p, label]);
+  };
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
@@ -2483,37 +2487,75 @@ export default function Page() {
           )}
         </div>
         <nav className="flex-1 overflow-y-auto" style={{ padding: "8px" }}>
-          {NAV_GROUPS.map(group => (
-            <div key={group.label} style={{ marginBottom: 4 }}>
-              {!collapsed && (
-                <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "rgba(255,255,255,0.25)", padding: "10px 12px 4px", userSelect: "none" }}>
-                  {group.label}
-                </p>
-              )}
-              {group.items.map(n => {
-                const isActive = active === n.id;
-                return (
-                  <button key={n.id} onClick={() => setActive(n.id)} title={collapsed ? n.label : ""}
-                    className="w-full flex items-center text-left transition-all"
+          {NAV_GROUPS.map(group => {
+            const isExpanded = expandedGroups.includes(group.label);
+            const hasActive = group.items.some(n => n.id === active);
+            return (
+              <div key={group.label} style={{ marginBottom: 2 }}>
+                {!collapsed ? (
+                  <button
+                    onClick={() => toggleGroup(group.label)}
                     style={{
-                      gap: 10, padding: collapsed ? "9px 14px" : "9px 12px",
-                      marginBottom: 2, borderRadius: 6, border: "none", cursor: "pointer",
-                      background: isActive ? "rgba(201,168,76,0.14)" : "transparent",
-                      color: isActive ? "#c9a84c" : "rgba(255,255,255,0.55)",
-                      fontFamily: "inherit", fontSize: 12.5, fontWeight: isActive ? 600 : 400,
-                      borderLeft: isActive ? "2px solid #c9a84c" : "2px solid transparent",
+                      width: "100%", display: "flex", alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "8px 12px", border: "none", cursor: "pointer",
+                      background: hasActive && !isExpanded ? "rgba(201,168,76,0.08)" : "transparent",
+                      borderRadius: 6, fontFamily: "inherit", transition: "all 0.15s",
                     }}
-                    onMouseEnter={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.85)"; } }}
-                    onMouseLeave={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.55)"; } }}
+                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"}
+                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = hasActive && !isExpanded ? "rgba(201,168,76,0.08)" : "transparent"}
                   >
-                    <span style={{ fontSize: 13, flexShrink: 0, width: 16, textAlign: "center" }}>{n.icon}</span>
-                    {!collapsed && <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{n.label}</span>}
+                    <span style={{
+                      fontSize: 10, fontWeight: 700, letterSpacing: "0.14em",
+                      textTransform: "uppercase",
+                      color: hasActive ? "#c9a84c" : "rgba(255,255,255,0.55)", userSelect: "none",
+                    }}>
+                      {group.label}
+                    </span>
+                    <span style={{
+                      fontSize: 10, color: "rgba(255,255,255,0.45)",
+                      transition: "transform 0.2s",
+                      transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
+                      display: "inline-block",
+                    }}>▼</span>
                   </button>
-                );
-              })}
-              {!collapsed && <div style={{ height: 1, background: "rgba(255,255,255,0.07)", margin: "6px 10px" }} />}
-            </div>
-          ))}
+                ) : (
+                  <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "6px 4px" }} />
+                )}
+
+                {(isExpanded || collapsed) && (
+                  <div style={{
+                    overflow: "hidden",
+                    maxHeight: isExpanded || collapsed ? 500 : 0,
+                    transition: "max-height 0.25s ease",
+                  }}>
+                    {group.items.map(n => {
+                      const isActive = active === n.id;
+                      return (
+                        <button key={n.id} onClick={() => setActive(n.id)} title={collapsed ? n.label : ""}
+                          className="w-full flex items-center text-left transition-all"
+                          style={{
+                            gap: 10,
+                            padding: collapsed ? "9px 14px" : "8px 12px 8px 20px",
+                            marginBottom: 2, borderRadius: 6, border: "none", cursor: "pointer",
+                            background: isActive ? "rgba(201,168,76,0.22)" : "transparent",
+                            color: isActive ? "#e8c96b" : "rgba(255,255,255,0.75)",
+                            fontFamily: "inherit", fontSize: 13.5,
+                            borderLeft: isActive ? "2px solid #c9a84c" : "2px solid transparent",
+                          }}
+                          onMouseEnter={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,1)"; } }}
+                          onMouseLeave={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.55)"; } }}
+                        >
+                          <span style={{ fontSize: 13, flexShrink: 0, width: 16, textAlign: "center" }}>{n.icon}</span>
+                          {!collapsed && <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{n.label}</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </nav>
         <div className="p-2 border-t border-white/8">
           <button onClick={() => setCollapsed(!collapsed)} className="w-full flex items-center gap-3 px-3 py-2.5 text-zinc-600 hover:text-white hover:bg-white/5 transition-all">
