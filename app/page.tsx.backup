@@ -1016,755 +1016,520 @@ const Enquiries = () => {
   );
 };
 
-
-
-
-
-
-
-
 /* ══════════════════════════════════════════════════════════════
    WEBSITE CMS
 ══════════════════════════════════════════════════════════════ */
 /* ══════════════════════════════════════════════════════════════
    WEBSITE CMS
-══════════════════════════════════════════════════════════════ */
-/* ══════════════════════════════════════════════════════════════
-   WEBSITE CMS  — full version
-   Covers: Hero · Slides · Featured · About · Network · Advisory
-           Partners · Market Updates · FAQ · Contact · Social
-           Heritage · AI Concierge · SEO · Announcement
 ══════════════════════════════════════════════════════════════ */
 const WebsiteCMS = () => {
-  type Tab = "hero" | "slides" | "featured" | "about" | "network" | "advisory" | "partners" | "updates" | "faq" | "contact" | "social" | "heritage" | "ai" | "seo" | "announcement";
-
-  const [tab, setTab] = useState<Tab>("hero");
+  const [tab, setTab] = useState<"hero" | "featured" | "about" | "contact" | "social" | "announcement" | "seo" | "slides">("hero");
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [slides, setSlides] = useState<any[]>([]);
-  const [updates, setUpdates] = useState<any[]>([]);
-  const [partners, setPartners] = useState<any[]>([]);
-  const [faqs, setFaqs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-
-  // slide form
   const [slideForm, setSlideForm] = useState({ title: "", subtitle: "", image_url: "", cta_text: "View Inventory", cta_link: "/inventory", sort_order: "0", is_active: true });
   const [editingSlide, setEditingSlide] = useState<any>(null);
   const [slideSaving, setSlideSaving] = useState(false);
-  const [slideUploading, setSlideUploading] = useState(false);
-  const slideFileRef = useRef<HTMLInputElement>(null);
-
-  // about upload
+  const [uploading, setUploading] = useState(false);
   const [aboutUploading, setAboutUploading] = useState(false);
+  const slideFileRef = useRef<HTMLInputElement>(null);
   const aboutFileRef = useRef<HTMLInputElement>(null);
 
-  // advisory upload
-  const [advUploading, setAdvUploading] = useState(false);
-  const advFileRef = useRef<HTMLInputElement>(null);
-
-  // update form
-  const UPDATE_TYPES = ["Market Alert", "Logistics", "Global News", "Auction Result"];
-  const [updateForm, setUpdateForm] = useState({ type: "Market Alert", title: "", description: "", urgent: false, sort_order: "0" });
-  const [editingUpdate, setEditingUpdate] = useState<any>(null);
-  const [updateSaving, setUpdateSaving] = useState(false);
-
-  // partner form
-  const [partnerForm, setPartnerForm] = useState({ name: "", region: "", sort_order: "0" });
-  const [editingPartner, setEditingPartner] = useState<any>(null);
-  const [partnerSaving, setPartnerSaving] = useState(false);
-
-  // faq form
-  const [faqForm, setFaqForm] = useState({ question: "", answer: "", sort_order: "0" });
-  const [editingFaq, setEditingFaq] = useState<any>(null);
-  const [faqSaving, setFaqSaving] = useState(false);
-  const [expandedGroups, setExpandedGroups] = useState<string[]>(["Homepage", "Pages", "Global"]);
-
-  // ── load ─────────────────────────────────────────────────────
   useEffect(() => {
-    (async () => {
-      const [v, s, sl, u, p, f] = await Promise.all([
+    const load = async () => {
+      const [v, s, sl] = await Promise.all([
         supabase.from("vehicles").select("*"),
         supabase.from("site_settings").select("*"),
         supabase.from("hero_slides").select("*").order("sort_order"),
-        supabase.from("market_updates").select("*").order("sort_order"),
-        supabase.from("partners").select("*").order("sort_order"),
-        supabase.from("faq_items").select("*").order("sort_order"),
       ]);
       setVehicles(v.data || []);
       const map: Record<string, string> = {};
       (s.data || []).forEach((r: any) => { map[r.key] = r.value; });
       setSettings(map);
       setSlides(sl.data || []);
-      setUpdates(u.data || []);
-      setPartners(p.data || []);
-      setFaqs(f.data || []);
       setLoading(false);
-    })();
+    };
+    load();
   }, []);
 
-  // ── helpers ───────────────────────────────────────────────────
-  const S = (key: string, val: string) => setSettings(p => ({ ...p, [key]: val }));
+  // ── helpers ──────────────────────────────────────────────────
+  const setSetting = (key: string, value: string) =>
+    setSettings(p => ({ ...p, [key]: value }));
 
   const saveAll = async () => {
     setSaving(true);
-    await Promise.all(Object.entries(settings).map(([key, value]) =>
-      supabase.from("site_settings").upsert({ key, value, updated_at: new Date().toISOString() })
-    ));
-    setSaving(false); setSaved(true); setTimeout(() => setSaved(false), 2500);
+    await Promise.all(
+      Object.entries(settings).map(([key, value]) =>
+        supabase.from("site_settings").upsert({ key, value, updated_at: new Date().toISOString() })
+      )
+    );
+    setSaving(false); setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
   };
 
-  const toggleFeatured = async (id: string, cur: boolean) => {
-    await supabase.from("vehicles").update({ featured: !cur }).eq("id", id);
-    setVehicles(p => p.map(v => v.id === id ? { ...v, featured: !cur } : v));
+  const toggleFeatured = async (id: string, current: boolean) => {
+    await supabase.from("vehicles").update({ featured: !current }).eq("id", id);
+    setVehicles(p => p.map(v => v.id === id ? { ...v, featured: !current } : v));
   };
 
-  // ── image upload util ─────────────────────────────────────────
-  const uploadImg = async (file: File, folder: string, onDone: (url: string) => void, setLoading: (v: boolean) => void) => {
-    setLoading(true);
-    const path = `${folder}/${Date.now()}.${file.name.split(".").pop()}`;
+  // ── image uploads ─────────────────────────────────────────────
+  const uploadSlideImage = async (file: File) => {
+    setUploading(true);
+    const path = `hero/${Date.now()}.${file.name.split(".").pop()}`;
     const { error } = await supabase.storage.from("car-images").upload(path, file, { upsert: true });
-    if (!error) { const { data } = supabase.storage.from("car-images").getPublicUrl(path); onDone(data.publicUrl); }
-    setLoading(false);
+    if (!error) {
+      const { data } = supabase.storage.from("car-images").getPublicUrl(path);
+      setSlideForm(f => ({ ...f, image_url: data.publicUrl }));
+    }
+    setUploading(false);
   };
 
-  // ── slide CRUD ────────────────────────────────────────────────
-  const openNewSlide = () => { setEditingSlide(null); setSlideForm({ title: "", subtitle: "", image_url: "", cta_text: "View Inventory", cta_link: "/inventory", sort_order: String(slides.length), is_active: true }); };
-  const openEditSlide = (s: any) => { setEditingSlide(s); setSlideForm({ title: s.title, subtitle: s.subtitle || "", image_url: s.image_url, cta_text: s.cta_text, cta_link: s.cta_link, sort_order: String(s.sort_order), is_active: s.is_active }); };
+  const uploadAboutImage = async (file: File) => {
+    setAboutUploading(true);
+    const path = `about/${Date.now()}.${file.name.split(".").pop()}`;
+    const { error } = await supabase.storage.from("car-images").upload(path, file, { upsert: true });
+    if (!error) {
+      const { data } = supabase.storage.from("car-images").getPublicUrl(path);
+      setSetting("about_image_url", data.publicUrl);
+      await supabase.from("site_settings").upsert({ key: "about_image_url", value: data.publicUrl, updated_at: new Date().toISOString() });
+    }
+    setAboutUploading(false);
+  };
+
+  // ── slides CRUD ───────────────────────────────────────────────
+  const openNewSlide = () => {
+    setEditingSlide(null);
+    setSlideForm({ title: "", subtitle: "", image_url: "", cta_text: "View Inventory", cta_link: "/inventory", sort_order: String(slides.length), is_active: true });
+  };
+
+  const openEditSlide = (s: any) => {
+    setEditingSlide(s);
+    setSlideForm({ title: s.title, subtitle: s.subtitle || "", image_url: s.image_url, cta_text: s.cta_text, cta_link: s.cta_link, sort_order: String(s.sort_order), is_active: s.is_active });
+  };
+
   const saveSlide = async () => {
     if (!slideForm.title || !slideForm.image_url) return;
     setSlideSaving(true);
     const payload = { ...slideForm, sort_order: parseInt(slideForm.sort_order) || 0 };
-    if (editingSlide) await supabase.from("hero_slides").update(payload).eq("id", editingSlide.id);
-    else await supabase.from("hero_slides").insert([payload]);
+    if (editingSlide) {
+      await supabase.from("hero_slides").update(payload).eq("id", editingSlide.id);
+    } else {
+      await supabase.from("hero_slides").insert([payload]);
+    }
     const { data } = await supabase.from("hero_slides").select("*").order("sort_order");
-    setSlides(data || []); setEditingSlide(null); openNewSlide(); setSlideSaving(false);
+    setSlides(data || []);
+    setEditingSlide(null);
+    setSlideForm({ title: "", subtitle: "", image_url: "", cta_text: "View Inventory", cta_link: "/inventory", sort_order: "0", is_active: true });
+    setSlideSaving(false);
   };
+
   const deleteSlide = async (id: number) => {
-    if (!confirm("Delete slide?")) return;
+    if (!confirm("Delete this slide?")) return;
     await supabase.from("hero_slides").delete().eq("id", id);
     setSlides(p => p.filter(s => s.id !== id));
   };
+
   const toggleSlideActive = async (s: any) => {
     await supabase.from("hero_slides").update({ is_active: !s.is_active }).eq("id", s.id);
     setSlides(p => p.map(sl => sl.id === s.id ? { ...sl, is_active: !s.is_active } : sl));
   };
 
-  // ── update CRUD ───────────────────────────────────────────────
-  const openNewUpdate = () => { setEditingUpdate(null); setUpdateForm({ type: "Market Alert", title: "", description: "", urgent: false, sort_order: String(updates.length) }); };
-  const openEditUpdate = (u: any) => { setEditingUpdate(u); setUpdateForm({ type: u.type, title: u.title, description: u.description, urgent: u.urgent, sort_order: String(u.sort_order) }); };
-  const saveUpdate = async () => {
-    if (!updateForm.title || !updateForm.description) return;
-    setUpdateSaving(true);
-    const payload = { ...updateForm, sort_order: parseInt(updateForm.sort_order) || 0, published: true };
-    if (editingUpdate) await supabase.from("market_updates").update(payload).eq("id", editingUpdate.id);
-    else await supabase.from("market_updates").insert([payload]);
-    const { data } = await supabase.from("market_updates").select("*").order("sort_order");
-    setUpdates(data || []); setEditingUpdate(null); openNewUpdate(); setUpdateSaving(false);
-  };
-  const deleteUpdate = async (id: number) => {
-    if (!confirm("Delete this update?")) return;
-    await supabase.from("market_updates").delete().eq("id", id);
-    setUpdates(p => p.filter(u => u.id !== id));
-  };
-  const toggleUpdatePublished = async (u: any) => {
-    await supabase.from("market_updates").update({ published: !u.published }).eq("id", u.id);
-    setUpdates(p => p.map(x => x.id === u.id ? { ...x, published: !u.published } : x));
-  };
-
-  // ── partner CRUD ──────────────────────────────────────────────
-  const openNewPartner = () => { setEditingPartner(null); setPartnerForm({ name: "", region: "", sort_order: String(partners.length) }); };
-  const openEditPartner = (p: any) => { setEditingPartner(p); setPartnerForm({ name: p.name, region: p.region, sort_order: String(p.sort_order) }); };
-  const savePartner = async () => {
-    if (!partnerForm.name) return;
-    setPartnerSaving(true);
-    const payload = { ...partnerForm, sort_order: parseInt(partnerForm.sort_order) || 0, is_active: true };
-    if (editingPartner) await supabase.from("partners").update(payload).eq("id", editingPartner.id);
-    else await supabase.from("partners").insert([payload]);
-    const { data } = await supabase.from("partners").select("*").order("sort_order");
-    setPartners(data || []); setEditingPartner(null); openNewPartner(); setPartnerSaving(false);
-  };
-  const deletePartner = async (id: number) => {
-    if (!confirm("Delete partner?")) return;
-    await supabase.from("partners").delete().eq("id", id);
-    setPartners(p => p.filter(x => x.id !== id));
-  };
-  const togglePartnerActive = async (p: any) => {
-    await supabase.from("partners").update({ is_active: !p.is_active }).eq("id", p.id);
-    setPartners(x => x.map(r => r.id === p.id ? { ...r, is_active: !p.is_active } : r));
-  };
-
-  // ── faq CRUD ──────────────────────────────────────────────────
-  const openNewFaq = () => { setEditingFaq(null); setFaqForm({ question: "", answer: "", sort_order: String(faqs.length) }); };
-  const openEditFaq = (f: any) => { setEditingFaq(f); setFaqForm({ question: f.question, answer: f.answer, sort_order: String(f.sort_order) }); };
-  const saveFaq = async () => {
-    if (!faqForm.question || !faqForm.answer) return;
-    setFaqSaving(true);
-    const payload = { ...faqForm, sort_order: parseInt(faqForm.sort_order) || 0, is_active: true };
-    if (editingFaq) await supabase.from("faq_items").update(payload).eq("id", editingFaq.id);
-    else await supabase.from("faq_items").insert([payload]);
-    const { data } = await supabase.from("faq_items").select("*").order("sort_order");
-    setFaqs(data || []); setEditingFaq(null); openNewFaq(); setFaqSaving(false);
-  };
-  const deleteFaq = async (id: number) => {
-    if (!confirm("Delete FAQ?")) return;
-    await supabase.from("faq_items").delete().eq("id", id);
-    setFaqs(p => p.filter(x => x.id !== id));
-  };
-
   if (loading) return <Spinner />;
 
-  // ── shared styles ─────────────────────────────────────────────
+  // ── shared input styles ───────────────────────────────────────
   const inp = "w-full bg-black border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/40 placeholder-zinc-600";
   const ta = "w-full bg-black border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/40 resize-none";
-  const btn = "px-6 py-2.5 bg-white text-black text-xs font-semibold tracking-[0.2em] uppercase hover:bg-zinc-200 transition-all disabled:opacity-40";
-  const btnGhost = "px-5 py-2.5 border border-white/10 text-zinc-500 text-xs tracking-[0.2em] uppercase hover:border-white/30 hover:text-white transition-all";
 
-  const UploadBtn = ({ uploading, onClick, label = "Upload Image" }: { uploading: boolean, onClick: () => void, label?: string }) => (
-    <button onClick={onClick} disabled={uploading}
-      className="border border-white/10 text-zinc-400 text-xs px-4 py-2 hover:border-white/30 hover:text-white transition-all disabled:opacity-40">
-      {uploading ? "Uploading…" : label}
-    </button>
-  );
-
-  const DeleteBtn = ({ onClick }: { onClick: () => void }) => (
-    <button onClick={onClick} className="text-[10px] uppercase tracking-wider text-red-500/60 border border-red-500/20 px-2 py-1 hover:border-red-500/40 hover:text-red-400 transition-all">Delete</button>
-  );
-  const EditBtn = ({ onClick }: { onClick: () => void }) => (
-    <button onClick={onClick} className="text-[10px] uppercase tracking-wider text-zinc-400 border border-white/10 px-2 py-1 hover:border-white/30 hover:text-white transition-all">Edit</button>
-  );
-  const ActiveBadge = ({ active, onToggle }: { active: boolean, onToggle: () => void }) => (
-    <button onClick={onToggle}
-      className={`px-2 py-0.5 text-[10px] uppercase tracking-wider border transition-all ${active ? "border-green-500/30 text-green-400 bg-green-500/10" : "border-white/10 text-zinc-600"}`}>
-      {active ? "Live" : "Hidden"}
-    </button>
-  );
-
-
-
-  // ── Tab groups config (same as before, used for sidebar) ─────
-  const TAB_GROUPS = [
-    {
-      label: "Homepage", items: [
-        { id: "hero", label: "Hero", icon: "▣" },
-        { id: "slides", label: "Hero Slides", icon: "◫" },
-        { id: "featured", label: "Featured Cars", icon: "★" },
-        { id: "network", label: "Network", icon: "◎" },
-        { id: "advisory", label: "Advisory", icon: "◈" },
-        { id: "partners", label: "Partners", icon: "◇" },
-      ]
-    },
-    {
-      label: "Pages", items: [
-        { id: "updates", label: "Market Updates", icon: "⚡" },
-        { id: "heritage", label: "Heritage", icon: "◷" },
-        { id: "faq", label: "FAQ", icon: "?" },
-      ]
-    },
-    {
-      label: "Global", items: [
-        { id: "about", label: "About", icon: "◉" },
-        { id: "contact", label: "Contact", icon: "○" },
-        { id: "social", label: "Social", icon: "◌" },
-        { id: "announcement", label: "Banner", icon: "▤" },
-        { id: "ai", label: "AI Concierge", icon: "✦" },
-        { id: "seo", label: "SEO", icon: "⊕" },
-      ]
-    },
-  ];
-
-  const toggleGroup = (label: string) =>
-    setExpandedGroups(p => p.includes(label) ? p.filter(g => g !== label) : [...p, label]);
-
-  const activeLabel = TAB_GROUPS.flatMap(g => g.items).find(i => i.id === tab)?.label ?? "";
+  // ── tabs config ───────────────────────────────────────────────
+  const TABS = [
+    { id: "hero", label: "Hero Text" },
+    { id: "slides", label: "Hero Slides" },
+    { id: "featured", label: "Featured Cars" },
+    { id: "about", label: "About" },
+    { id: "contact", label: "Contact" },
+    { id: "social", label: "Social" },
+    { id: "announcement", label: "Banner" },
+    { id: "seo", label: "SEO" },
+  ] as const;
 
   return (
-    <div className="space-y-4">
-
-      {/* ── Page header ── */}
+    <div className="space-y-6">
+      {/* ── Header ── */}
       <div className="flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-light text-white tracking-wide">Website CMS</h1>
           <p className="text-zinc-500 text-sm mt-1">Changes save directly to the live website database</p>
         </div>
-        <button onClick={saveAll} disabled={saving}
-          className={`px-8 py-3 text-xs font-semibold tracking-[0.25em] uppercase transition-all disabled:opacity-50 ${saved ? "bg-zinc-700 text-zinc-300" : "bg-white text-black hover:bg-zinc-200"}`}>
+        <button
+          onClick={saveAll}
+          disabled={saving}
+          className={`px-8 py-3 text-xs font-semibold tracking-[0.25em] uppercase transition-all disabled:opacity-50 ${saved ? "bg-zinc-700 text-zinc-300" : "bg-white text-black hover:bg-zinc-200"}`}
+        >
           {saving ? "Saving…" : saved ? "✓ Saved" : "Save All Changes"}
         </button>
       </div>
 
-      {/* ── Main layout: sidebar + content ── */}
-      <div className="flex gap-px min-h-[70vh]">
+      {/* ── Tabs ── */}
+      <div className="flex gap-px bg-white/5 overflow-x-auto">
+        {TABS.map(t => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`px-5 py-3 text-[10px] font-semibold tracking-[0.2em] uppercase whitespace-nowrap transition-all ${tab === t.id
+                ? "bg-white text-black"
+                : "bg-[#0a0a0a] text-zinc-500 hover:text-white"
+              }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-        {/* Sidebar */}
-        <aside className="w-48 shrink-0 bg-[#080808] border border-white/8 flex flex-col">
-          <nav className="flex-1 py-2">
-            {TAB_GROUPS.map(group => {
-              const isExpanded = expandedGroups.includes(group.label);
-              const hasActive = group.items.some(i => i.id === tab);
-              return (
-                <div key={group.label} className="mb-1">
-                  {/* Group header */}
-                  <button
-                    onClick={() => toggleGroup(group.label)}
-                    className="w-full flex items-center justify-between px-4 py-2 transition-all hover:bg-white/5"
-                  >
-                    <span className={`text-[9px] font-bold tracking-[0.2em] uppercase transition-colors ${hasActive && !isExpanded ? "text-[#c9a84c]" : "text-zinc-600"}`}>
-                      {group.label}
-                    </span>
-                    <span className={`text-[9px] text-zinc-700 transition-transform duration-200 inline-block ${isExpanded ? "rotate-180" : ""}`}>▼</span>
-                  </button>
+      {/* ══ TAB: HERO TEXT ══════════════════════════════════════ */}
+      {tab === "hero" && (
+        <div className="bg-[#0a0a0a] p-6 space-y-4">
+          <p className="text-[10px] font-semibold tracking-[0.25em] uppercase text-zinc-500 mb-5">Hero Section Text</p>
+          <Field label="Hero Headline">
+            <input className={inp} placeholder="e.g. Bangladesh's Premier Luxury Car Importer"
+              value={settings.hero_title || ""} onChange={e => setSetting("hero_title", e.target.value)} />
+          </Field>
+          <Field label="Hero Subtitle">
+            <textarea rows={3} className={ta} placeholder="e.g. We source rare and exotic vehicles to order…"
+              value={settings.hero_subtitle || ""} onChange={e => setSetting("hero_subtitle", e.target.value)} />
+          </Field>
+        </div>
+      )}
 
-                  {/* Items */}
-                  {isExpanded && (
-                    <div>
-                      {group.items.map(item => {
-                        const isActive = tab === item.id;
-                        return (
-                          <button
-                            key={item.id}
-                            onClick={() => setTab(item.id as Tab)}
-                            className="w-full flex items-center gap-2.5 px-4 py-2 text-left transition-all"
-                            style={{
-                              borderLeft: isActive ? "2px solid #c9a84c" : "2px solid transparent",
-                              background: isActive ? "rgba(201,168,76,0.10)" : "transparent",
-                              color: isActive ? "#e8c96b" : "rgba(255,255,255,0.5)",
-                            }}
-                            onMouseEnter={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.9)"; } }}
-                            onMouseLeave={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.5)"; } }}
-                          >
-                            <span className="text-[11px] w-4 text-center shrink-0">{item.icon}</span>
-                            <span className="text-[11px] tracking-wide whitespace-nowrap">{item.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
+      {/* ══ TAB: HERO SLIDES ════════════════════════════════════ */}
+      {tab === "slides" && (
+        <div className="space-y-4">
+          {/* Slide form */}
+          <div className="bg-[#0a0a0a] p-6">
+            <p className="text-[10px] font-semibold tracking-[0.25em] uppercase text-zinc-500 mb-5">
+              {editingSlide ? "Edit Slide" : "Add New Slide"}
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Title *">
+                <input className={inp} placeholder="e.g. Exquisite Imports, Delivered."
+                  value={slideForm.title} onChange={e => setSlideForm(f => ({ ...f, title: e.target.value }))} />
+              </Field>
+              <Field label="Subtitle">
+                <input className={inp} placeholder="e.g. Rare vehicles sourced to order"
+                  value={slideForm.subtitle} onChange={e => setSlideForm(f => ({ ...f, subtitle: e.target.value }))} />
+              </Field>
+              <Field label="CTA Button Text">
+                <input className={inp} placeholder="View Inventory"
+                  value={slideForm.cta_text} onChange={e => setSlideForm(f => ({ ...f, cta_text: e.target.value }))} />
+              </Field>
+              <Field label="CTA Link">
+                <input className={inp} placeholder="/inventory"
+                  value={slideForm.cta_link} onChange={e => setSlideForm(f => ({ ...f, cta_link: e.target.value }))} />
+              </Field>
+              <Field label="Sort Order (0 = first)">
+                <input type="number" className={inp}
+                  value={slideForm.sort_order} onChange={e => setSlideForm(f => ({ ...f, sort_order: e.target.value }))} />
+              </Field>
+              <Field label="Active">
+                <div className="flex items-center gap-3 h-10">
+                  <input type="checkbox" id="slideActive" checked={slideForm.is_active}
+                    onChange={e => setSlideForm(f => ({ ...f, is_active: e.target.checked }))} className="accent-white" />
+                  <label htmlFor="slideActive" className="text-xs text-zinc-500 tracking-wider uppercase cursor-pointer">
+                    Show on website
+                  </label>
                 </div>
-              );
-            })}
-          </nav>
-        </aside>
-
-        {/* Content panel */}
-        <div className="flex-1 min-w-0 bg-[#0a0a0a] border border-white/8 border-l-0">
-
-          {/* Panel header */}
-          <div className="px-6 py-4 border-b border-white/8 flex items-center justify-between">
-            <p className="text-[10px] font-semibold tracking-[0.25em] uppercase text-zinc-400">{activeLabel}</p>
-            <p className="text-[10px] text-zinc-700 tracking-widest uppercase">Website CMS</p>
+              </Field>
+              <div className="col-span-2">
+                <Field label="Background Image *">
+                  <div className="flex gap-4 items-center">
+                    <input ref={slideFileRef} type="file" accept="image/*" className="hidden"
+                      onChange={e => e.target.files?.[0] && uploadSlideImage(e.target.files[0])} />
+                    <button
+                      onClick={() => slideFileRef.current?.click()}
+                      disabled={uploading}
+                      className="border border-white/10 text-zinc-400 text-xs px-4 py-2 hover:border-white/30 hover:text-white transition-all disabled:opacity-40"
+                    >
+                      {uploading ? "Uploading…" : "Upload Image"}
+                    </button>
+                    {slideForm.image_url && (
+                      <img src={slideForm.image_url} className="h-10 w-16 object-cover border border-white/10" alt="preview" />
+                    )}
+                    {slideForm.image_url && (
+                      <span className="text-zinc-600 text-xs truncate max-w-xs">{slideForm.image_url.split("/").pop()}</span>
+                    )}
+                  </div>
+                </Field>
+              </div>
+            </div>
+            <div className="flex gap-3 mt-5">
+              <button
+                onClick={saveSlide}
+                disabled={slideSaving || !slideForm.title || !slideForm.image_url}
+                className="px-6 py-2.5 bg-white text-black text-xs font-semibold tracking-[0.2em] uppercase hover:bg-zinc-200 transition-all disabled:opacity-40"
+              >
+                {slideSaving ? "Saving…" : editingSlide ? "Update Slide" : "Add Slide"}
+              </button>
+              {editingSlide && (
+                <button
+                  onClick={() => { setEditingSlide(null); setSlideForm({ title: "", subtitle: "", image_url: "", cta_text: "View Inventory", cta_link: "/inventory", sort_order: "0", is_active: true }); }}
+                  className="px-5 py-2.5 border border-white/10 text-zinc-500 text-xs tracking-[0.2em] uppercase hover:border-white/30 hover:text-white transition-all"
+                >
+                  Cancel
+                </button>
+              )}
+              {!editingSlide && (
+                <button onClick={openNewSlide}
+                  className="px-5 py-2.5 border border-white/10 text-zinc-500 text-xs tracking-[0.2em] uppercase hover:border-white/30 hover:text-white transition-all">
+                  Reset Form
+                </button>
+              )}
+            </div>
           </div>
 
-          <div className="p-6 space-y-5">
-
-            {/* ══ HERO ══════════════════════════════════════════ */}
-            {tab === "hero" && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <Field label="Tagline (above headline)">
-                    <input className={inp} placeholder="Automotive Excellence Since 1995" value={settings.hero_tagline || ""} onChange={e => S("hero_tagline", e.target.value)} />
-                  </Field>
-                  <Field label="CTA Button Text">
-                    <input className={inp} placeholder="Explore Collection" value={settings.hero_cta_text || ""} onChange={e => S("hero_cta_text", e.target.value)} />
-                  </Field>
-                  <div className="col-span-2">
-                    <Field label="Main Headline">
-                      <input className={inp} placeholder="The Art of Superiority" value={settings.hero_title || ""} onChange={e => S("hero_title", e.target.value)} />
-                    </Field>
-                  </div>
-                  <div className="col-span-2">
-                    <Field label="Subtitle">
-                      <textarea rows={2} className={ta} value={settings.hero_subtitle || ""} onChange={e => S("hero_subtitle", e.target.value)} />
-                    </Field>
-                  </div>
-                  <Field label="Background Video URL">
-                    <input className={inp} placeholder="https://…mp4" value={settings.hero_video_url || ""} onChange={e => S("hero_video_url", e.target.value)} />
-                  </Field>
-                  <Field label="Showreel Video URL">
-                    <input className={inp} placeholder="https://…mp4" value={settings.hero_showreel_url || ""} onChange={e => S("hero_showreel_url", e.target.value)} />
-                  </Field>
-                </div>
+          {/* Slides list */}
+          {slides.length === 0 ? (
+            <div className="bg-[#0a0a0a] border border-white/10 p-8 text-center text-zinc-600 text-sm">
+              No slides yet. Add your first slide above.
+            </div>
+          ) : (
+            <div className="bg-[#0a0a0a] border border-white/10 rounded-lg overflow-hidden">
+              <div className="px-5 py-3 border-b border-white/8">
+                <p className="text-[10px] font-semibold tracking-[0.25em] uppercase text-zinc-500">
+                  {slides.length} Slide{slides.length !== 1 ? "s" : ""}
+                </p>
               </div>
-            )}
-
-            {/* ══ HERO SLIDES ═══════════════════════════════════ */}
-            {tab === "slides" && (
-              <div className="space-y-5">
-                {/* Form */}
-                <div>
-                  <p className="text-[10px] font-semibold tracking-[0.2em] uppercase text-zinc-600 mb-4">{editingSlide ? "Editing Slide" : "Add New Slide"}</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Field label="Title *"><input className={inp} value={slideForm.title} onChange={e => setSlideForm(f => ({ ...f, title: e.target.value }))} placeholder="Exquisite Imports, Delivered." /></Field>
-                    <Field label="Subtitle"><input className={inp} value={slideForm.subtitle} onChange={e => setSlideForm(f => ({ ...f, subtitle: e.target.value }))} /></Field>
-                    <Field label="CTA Text"><input className={inp} value={slideForm.cta_text} onChange={e => setSlideForm(f => ({ ...f, cta_text: e.target.value }))} /></Field>
-                    <Field label="CTA Link"><input className={inp} value={slideForm.cta_link} onChange={e => setSlideForm(f => ({ ...f, cta_link: e.target.value }))} /></Field>
-                    <Field label="Sort Order"><input type="number" className={inp} value={slideForm.sort_order} onChange={e => setSlideForm(f => ({ ...f, sort_order: e.target.value }))} /></Field>
-                    <Field label="Active">
-                      <div className="flex items-center gap-3 h-10">
-                        <input type="checkbox" checked={slideForm.is_active} onChange={e => setSlideForm(f => ({ ...f, is_active: e.target.checked }))} className="accent-white" />
-                        <label className="text-xs text-zinc-500 uppercase tracking-wider">Show on website</label>
-                      </div>
-                    </Field>
-                    <div className="col-span-2">
-                      <Field label="Background Image *">
-                        <div className="flex gap-3 items-center">
-                          <input ref={slideFileRef} type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && uploadImg(e.target.files[0], "hero", (url) => setSlideForm(f => ({ ...f, image_url: url })), setSlideUploading)} />
-                          <UploadBtn uploading={slideUploading} onClick={() => slideFileRef.current?.click()} />
-                          {slideForm.image_url && <img src={slideForm.image_url} className="h-9 w-14 object-cover border border-white/10" alt="" />}
-                          <input className={`${inp} flex-1`} placeholder="or paste URL" value={slideForm.image_url} onChange={e => setSlideForm(f => ({ ...f, image_url: e.target.value }))} />
-                        </div>
-                      </Field>
-                    </div>
-                  </div>
-                  <div className="flex gap-3 mt-4">
-                    <button onClick={saveSlide} disabled={slideSaving || !slideForm.title || !slideForm.image_url} className={btn}>{slideSaving ? "Saving…" : editingSlide ? "Update Slide" : "Add Slide"}</button>
-                    {editingSlide && <button onClick={() => { setEditingSlide(null); openNewSlide(); }} className={btnGhost}>Cancel</button>}
-                  </div>
-                </div>
-                {/* List */}
-                {slides.length > 0 && (
-                  <div className="border border-white/8 overflow-hidden">
-                    <div className="px-4 py-2.5 border-b border-white/8 bg-black/20">
-                      <p className="text-[9px] font-semibold tracking-[0.2em] uppercase text-zinc-600">{slides.length} slide{slides.length !== 1 ? "s" : ""}</p>
-                    </div>
-                    {slides.map((s, i) => (
-                      <div key={s.id} className={`flex items-center gap-4 px-4 py-3 hover:bg-white/2 ${i > 0 ? "border-t border-white/5" : ""}`}>
-                        <img src={s.image_url} className="w-14 h-9 object-cover shrink-0 border border-white/10" alt="" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-white text-xs font-medium truncate">{s.title}</p>
-                          <p className="text-zinc-600 text-xs">order {s.sort_order} · {s.cta_text}</p>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <ActiveBadge active={s.is_active} onToggle={() => toggleSlideActive(s)} />
-                          <EditBtn onClick={() => openEditSlide(s)} />
-                          <DeleteBtn onClick={() => deleteSlide(s.id)} />
-                        </div>
-                      </div>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-white/8">
+                    {["Image", "Title", "CTA", "Order", "Active", ""].map(h => (
+                      <th key={h} className="text-left text-[9px] font-semibold tracking-[0.25em] uppercase text-zinc-600 px-5 py-3">{h}</th>
                     ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ══ FEATURED CARS ═════════════════════════════════ */}
-            {tab === "featured" && (
-              <div className="space-y-5">
-                <div className="grid grid-cols-3 gap-4">
-                  <Field label="Section Label"><input className={inp} placeholder="Curated Masterpieces" value={settings.featured_label || ""} onChange={e => S("featured_label", e.target.value)} /></Field>
-                  <Field label="Section Heading"><input className={inp} placeholder="The Modern Collection" value={settings.featured_heading || ""} onChange={e => S("featured_heading", e.target.value)} /></Field>
-                  <Field label="Button Text"><input className={inp} placeholder="View Private Inventory" value={settings.featured_btn_text || ""} onChange={e => S("featured_btn_text", e.target.value)} /></Field>
-                </div>
-                <div>
-                  <p className="text-[9px] font-semibold tracking-[0.2em] uppercase text-zinc-600 mb-3">Toggle Featured Vehicles</p>
-                  <div className="grid grid-cols-3 gap-2">
-                    {vehicles.map(car => (
-                      <button key={car.id} onClick={() => toggleFeatured(car.id, car.featured)}
-                        className={`p-3 text-left border transition-all ${car.featured ? "border-[#c9a84c] bg-[#c9a84c]/8" : "border-white/10 hover:border-white/25"}`}>
-                        <p className="text-white text-xs font-medium truncate">{car.make} {car.model}</p>
-                        <p className="text-zinc-500 text-[10px] mt-0.5">{car.year} · {car.status}</p>
-                        {car.featured && <p className="text-[#c9a84c] text-[10px] mt-1 font-semibold">✓ Featured</p>}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ══ NETWORK ═══════════════════════════════════════ */}
-            {tab === "network" && (
-              <div className="space-y-5">
-                <div className="grid grid-cols-2 gap-4">
-                  <Field label="Imports Counter"><input className={inp} placeholder="12k+" value={settings.network_imports_count || ""} onChange={e => S("network_imports_count", e.target.value)} /></Field>
-                  <Field label="Background Image URL"><input className={inp} value={settings.network_bg_image_url || ""} onChange={e => S("network_bg_image_url", e.target.value)} /></Field>
-                  <div className="col-span-2">
-                    <Field label="Philosophy Quote">
-                      <input className={inp} value={settings.network_philosophy_quote || ""} onChange={e => S("network_philosophy_quote", e.target.value)} />
-                    </Field>
-                  </div>
-                </div>
-                <p className="text-[9px] font-semibold tracking-[0.2em] uppercase text-zinc-600">4 Stat Cards</p>
-                <div className="grid grid-cols-2 gap-3">
-                  {[1, 2, 3, 4].map(n => (
-                    <div key={n} className="border border-white/8 p-4 space-y-3">
-                      <p className="text-[9px] uppercase tracking-widest text-zinc-700">Card {n}</p>
-                      <Field label="Title"><input className={inp} value={settings[`network_stat${n}_title`] || ""} onChange={e => S(`network_stat${n}_title`, e.target.value)} /></Field>
-                      <Field label="Description"><input className={inp} value={settings[`network_stat${n}_desc`] || ""} onChange={e => S(`network_stat${n}_desc`, e.target.value)} /></Field>
-                    </div>
+                  </tr>
+                </thead>
+                <tbody>
+                  {slides.map(s => (
+                    <tr key={s.id} className="border-b border-white/5 hover:bg-white/2">
+                      <td className="px-5 py-3">
+                        <img src={s.image_url} className="w-16 h-10 object-cover border border-white/10" alt="" />
+                      </td>
+                      <td className="px-5 py-3">
+                        <p className="text-white text-xs font-medium">{s.title}</p>
+                        {s.subtitle && <p className="text-zinc-600 text-xs mt-0.5">{s.subtitle}</p>}
+                      </td>
+                      <td className="px-5 py-3 text-zinc-500 text-xs">{s.cta_text} → {s.cta_link}</td>
+                      <td className="px-5 py-3 text-zinc-500 text-xs">{s.sort_order}</td>
+                      <td className="px-5 py-3">
+                        <button
+                          onClick={() => toggleSlideActive(s)}
+                          className={`px-2 py-0.5 text-[10px] uppercase tracking-wider border transition-all ${s.is_active
+                              ? "border-green-500/30 text-green-400 bg-green-500/10"
+                              : "border-white/10 text-zinc-600"
+                            }`}
+                        >
+                          {s.is_active ? "Live" : "Hidden"}
+                        </button>
+                      </td>
+                      <td className="px-5 py-3">
+                        <div className="flex gap-3">
+                          <button onClick={() => openEditSlide(s)}
+                            className="text-[10px] uppercase tracking-wider text-zinc-400 border border-white/10 px-2 py-1 hover:border-white/30 hover:text-white transition-all">
+                            Edit
+                          </button>
+                          <button onClick={() => deleteSlide(s.id)}
+                            className="text-[10px] uppercase tracking-wider text-red-500/60 border border-red-500/20 px-2 py-1 hover:border-red-500/40 hover:text-red-400 transition-all">
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
                   ))}
-                </div>
-              </div>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ══ TAB: FEATURED CARS ══════════════════════════════════ */}
+      {tab === "featured" && (
+        <div className="bg-[#0a0a0a] p-6">
+          <p className="text-[10px] font-semibold tracking-[0.25em] uppercase text-zinc-500 mb-2">
+            Featured Vehicles on Homepage
+          </p>
+          <p className="text-zinc-600 text-xs mb-5">
+            Click a car to toggle. Featured cars appear in the homepage showcase section.
+          </p>
+          {vehicles.length === 0 ? (
+            <p className="text-zinc-600 text-sm">No vehicles in inventory yet.</p>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {vehicles.map(car => (
+                <button
+                  key={car.id}
+                  onClick={() => toggleFeatured(car.id, car.featured)}
+                  className={`p-3 text-left border transition-all ${car.featured ? "border-white bg-white/8" : "border-white/10 hover:border-white/30"}`}
+                >
+                  <p className="text-white text-xs font-medium">{car.make} {car.model}</p>
+                  <p className="text-zinc-500 text-xs mt-0.5">{car.year} · {car.status}</p>
+                  {car.featured && <p className="text-white text-xs mt-1 font-semibold">✓ Featured</p>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ══ TAB: ABOUT ══════════════════════════════════════════ */}
+      {tab === "about" && (
+        <div className="bg-[#0a0a0a] p-6 space-y-4">
+          <p className="text-[10px] font-semibold tracking-[0.25em] uppercase text-zinc-500 mb-5">About Section</p>
+          <Field label="About Heading">
+            <input className={inp} placeholder="e.g. Who We Are"
+              value={settings.about_heading || ""} onChange={e => setSetting("about_heading", e.target.value)} />
+          </Field>
+          <Field label="About Body Text">
+            <textarea rows={6} className={ta}
+              placeholder="Tell your story — who you are, what you do, how many years in business, your speciality…"
+              value={settings.about_body || ""} onChange={e => setSetting("about_body", e.target.value)} />
+          </Field>
+          <Field label="About Section Image">
+            <div className="flex gap-4 items-center">
+              <input ref={aboutFileRef} type="file" accept="image/*" className="hidden"
+                onChange={e => e.target.files?.[0] && uploadAboutImage(e.target.files[0])} />
+              <button
+                onClick={() => aboutFileRef.current?.click()}
+                disabled={aboutUploading}
+                className="border border-white/10 text-zinc-400 text-xs px-4 py-2 hover:border-white/30 hover:text-white transition-all disabled:opacity-40"
+              >
+                {aboutUploading ? "Uploading…" : "Upload Image"}
+              </button>
+              {settings.about_image_url && (
+                <img src={settings.about_image_url} className="h-12 w-20 object-cover border border-white/10" alt="about" />
+              )}
+            </div>
+            {settings.about_image_url && (
+              <input className={`${inp} mt-2`} placeholder="Or paste image URL"
+                value={settings.about_image_url || ""} onChange={e => setSetting("about_image_url", e.target.value)} />
             )}
-
-            {/* ══ ADVISORY ══════════════════════════════════════ */}
-            {tab === "advisory" && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <Field label="Performance Stat (e.g. +142%)"><input className={inp} value={settings.advisory_stat_value || ""} onChange={e => S("advisory_stat_value", e.target.value)} /></Field>
-                  <Field label="Stat Description"><input className={inp} value={settings.advisory_stat_desc || ""} onChange={e => S("advisory_stat_desc", e.target.value)} /></Field>
-                  <div className="col-span-2">
-                    <Field label="Body Paragraph"><textarea rows={4} className={ta} value={settings.advisory_body || ""} onChange={e => S("advisory_body", e.target.value)} /></Field>
-                  </div>
-                  <Field label="Feature 1 Title"><input className={inp} value={settings.advisory_feature1_title || ""} onChange={e => S("advisory_feature1_title", e.target.value)} /></Field>
-                  <Field label="Feature 1 Description"><input className={inp} value={settings.advisory_feature1_desc || ""} onChange={e => S("advisory_feature1_desc", e.target.value)} /></Field>
-                  <Field label="Feature 2 Title"><input className={inp} value={settings.advisory_feature2_title || ""} onChange={e => S("advisory_feature2_title", e.target.value)} /></Field>
-                  <Field label="Feature 2 Description"><input className={inp} value={settings.advisory_feature2_desc || ""} onChange={e => S("advisory_feature2_desc", e.target.value)} /></Field>
-                  <div className="col-span-2">
-                    <Field label="Section Image">
-                      <div className="flex gap-3 items-center">
-                        <input ref={advFileRef} type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && uploadImg(e.target.files[0], "advisory", (url) => { S("advisory_image_url", url); supabase.from("site_settings").upsert({ key: "advisory_image_url", value: url, updated_at: new Date().toISOString() }); }, setAdvUploading)} />
-                        <UploadBtn uploading={advUploading} onClick={() => advFileRef.current?.click()} />
-                        {settings.advisory_image_url && <img src={settings.advisory_image_url} className="h-9 w-14 object-cover border border-white/10" alt="" />}
-                        <input className={`${inp} flex-1`} placeholder="or paste URL" value={settings.advisory_image_url || ""} onChange={e => S("advisory_image_url", e.target.value)} />
-                      </div>
-                    </Field>
-                  </div>
-                </div>
-              </div>
+            {!settings.about_image_url && (
+              <input className={`${inp} mt-2`} placeholder="Or paste image URL directly"
+                value={settings.about_image_url || ""} onChange={e => setSetting("about_image_url", e.target.value)} />
             )}
+          </Field>
+        </div>
+      )}
 
-            {/* ══ PARTNERS ══════════════════════════════════════ */}
-            {tab === "partners" && (
-              <div className="space-y-5">
-                <div>
-                  <p className="text-[9px] font-semibold tracking-[0.2em] uppercase text-zinc-600 mb-4">{editingPartner ? "Editing Partner" : "Add Partner"}</p>
-                  <div className="grid grid-cols-3 gap-4">
-                    <Field label="Name *"><input className={inp} placeholder="RM SOTHEBY'S" value={partnerForm.name} onChange={e => setPartnerForm(f => ({ ...f, name: e.target.value }))} /></Field>
-                    <Field label="Region"><input className={inp} placeholder="London / NY" value={partnerForm.region} onChange={e => setPartnerForm(f => ({ ...f, region: e.target.value }))} /></Field>
-                    <Field label="Sort Order"><input type="number" className={inp} value={partnerForm.sort_order} onChange={e => setPartnerForm(f => ({ ...f, sort_order: e.target.value }))} /></Field>
-                  </div>
-                  <div className="flex gap-3 mt-4">
-                    <button onClick={savePartner} disabled={partnerSaving || !partnerForm.name} className={btn}>{partnerSaving ? "Saving…" : editingPartner ? "Update" : "Add Partner"}</button>
-                    {editingPartner && <button onClick={() => { setEditingPartner(null); openNewPartner(); }} className={btnGhost}>Cancel</button>}
-                  </div>
-                </div>
-                {partners.length > 0 && (
-                  <div className="border border-white/8 overflow-hidden">
-                    {partners.map((p, i) => (
-                      <div key={p.id} className={`flex items-center gap-4 px-4 py-3 hover:bg-white/2 ${i > 0 ? "border-t border-white/5" : ""}`}>
-                        <div className="flex-1">
-                          <p className="text-white text-xs font-medium">{p.name}</p>
-                          <p className="text-zinc-600 text-[10px]">{p.region}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <ActiveBadge active={p.is_active} onToggle={() => togglePartnerActive(p)} />
-                          <EditBtn onClick={() => openEditPartner(p)} />
-                          <DeleteBtn onClick={() => deletePartner(p.id)} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+      {/* ══ TAB: CONTACT ════════════════════════════════════════ */}
+      {tab === "contact" && (
+        <div className="bg-[#0a0a0a] p-6 space-y-3">
+          <p className="text-[10px] font-semibold tracking-[0.25em] uppercase text-zinc-500 mb-5">Contact Information</p>
+          {(
+            [
+              ["Showroom Address", "showroom_address", "text", "123 Gulshan Avenue, Dhaka"],
+              ["Phone Number", "phone", "text", "+880 1X XXXX XXXX"],
+              ["WhatsApp Number", "whatsapp", "text", "+880 1X XXXX XXXX (with country code)"],
+              ["Email Address", "email", "email", "info@carhouseimports.com"],
+              ["Business Hours", "business_hours", "text", "Sun–Thu 10am–7pm, Fri–Sat 10am–5pm"],
+            ] as [string, string, string, string][]
+          ).map(([label, key, type, placeholder]) => (
+            <Field key={key} label={label}>
+              <input type={type} className={inp} placeholder={placeholder}
+                value={settings[key] || ""} onChange={e => setSetting(key, e.target.value)} />
+            </Field>
+          ))}
+        </div>
+      )}
 
-            {/* ══ MARKET UPDATES ════════════════════════════════ */}
-            {tab === "updates" && (
-              <div className="space-y-5">
-                <div>
-                  <p className="text-[9px] font-semibold tracking-[0.2em] uppercase text-zinc-600 mb-4">{editingUpdate ? "Editing Update" : "Publish New Update"}</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Field label="Type">
-                      <select className="w-full bg-black border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/40 appearance-none" value={updateForm.type} onChange={e => setUpdateForm(f => ({ ...f, type: e.target.value }))}>
-                        {UPDATE_TYPES.map(t => <option key={t}>{t}</option>)}
-                      </select>
-                    </Field>
-                    <Field label="Sort Order"><input type="number" className={inp} value={updateForm.sort_order} onChange={e => setUpdateForm(f => ({ ...f, sort_order: e.target.value }))} /></Field>
-                    <div className="col-span-2"><Field label="Title *"><input className={inp} placeholder="Price Shift: 1967 Ferrari 330 P4" value={updateForm.title} onChange={e => setUpdateForm(f => ({ ...f, title: e.target.value }))} /></Field></div>
-                    <div className="col-span-2"><Field label="Description *"><textarea rows={3} className={ta} value={updateForm.description} onChange={e => setUpdateForm(f => ({ ...f, description: e.target.value }))} /></Field></div>
-                    <div className="col-span-2 flex items-center gap-3">
-                      <input type="checkbox" id="urgent" checked={updateForm.urgent} onChange={e => setUpdateForm(f => ({ ...f, urgent: e.target.checked }))} className="accent-white" />
-                      <label htmlFor="urgent" className="text-xs text-zinc-500 uppercase tracking-wider cursor-pointer">Mark as URGENT (red pulse on website)</label>
-                    </div>
-                  </div>
-                  <div className="flex gap-3 mt-4">
-                    <button onClick={saveUpdate} disabled={updateSaving || !updateForm.title || !updateForm.description} className={btn}>{updateSaving ? "Saving…" : editingUpdate ? "Update" : "Publish"}</button>
-                    {editingUpdate && <button onClick={() => { setEditingUpdate(null); openNewUpdate(); }} className={btnGhost}>Cancel</button>}
-                  </div>
-                </div>
-                {updates.length > 0 && (
-                  <div className="border border-white/8 overflow-hidden">
-                    {updates.map((u, i) => (
-                      <div key={u.id} className={`flex items-center gap-4 px-4 py-3 hover:bg-white/2 ${i > 0 ? "border-t border-white/5" : ""}`}>
-                        <span className="text-[9px] uppercase tracking-wider text-zinc-500 border border-white/10 px-2 py-0.5 shrink-0">{u.type}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-white text-xs font-medium truncate">{u.title}</p>
-                          {u.urgent && <span className="text-[9px] text-[#c9a84c] uppercase tracking-wider">● Urgent</span>}
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <ActiveBadge active={u.published} onToggle={() => toggleUpdatePublished(u)} />
-                          <EditBtn onClick={() => openEditUpdate(u)} />
-                          <DeleteBtn onClick={() => deleteUpdate(u.id)} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+      {/* ══ TAB: SOCIAL ═════════════════════════════════════════ */}
+      {tab === "social" && (
+        <div className="bg-[#0a0a0a] p-6 space-y-3">
+          <p className="text-[10px] font-semibold tracking-[0.25em] uppercase text-zinc-500 mb-5">Social Media Links</p>
+          {(
+            [
+              ["Facebook Page URL", "facebook_url", "https://facebook.com/carhouseimports"],
+              ["Instagram URL", "instagram_url", "https://instagram.com/carhouseimports"],
+              ["YouTube Channel", "youtube_url", "https://youtube.com/@carhouseimports"],
+            ] as [string, string, string][]
+          ).map(([label, key, placeholder]) => (
+            <Field key={key} label={label}>
+              <input type="url" className={inp} placeholder={placeholder}
+                value={settings[key] || ""} onChange={e => setSetting(key, e.target.value)} />
+            </Field>
+          ))}
+          <p className="text-zinc-600 text-xs mt-4">
+            Leave blank to hide the icon from the website footer.
+          </p>
+        </div>
+      )}
 
-            {/* ══ HERITAGE ══════════════════════════════════════ */}
-            {tab === "heritage" && (
-              <Field label="Background Video URL">
-                <input className={inp} placeholder="https://…mp4" value={settings.heritage_video_url || ""} onChange={e => S("heritage_video_url", e.target.value)} />
-                <p className="text-zinc-700 text-xs mt-1">Plays in the cinematic hero of the Heritage page.</p>
-              </Field>
-            )}
+      {/* ══ TAB: ANNOUNCEMENT BANNER ════════════════════════════ */}
+      {tab === "announcement" && (
+        <div className="bg-[#0a0a0a] p-6 space-y-4">
+          <p className="text-[10px] font-semibold tracking-[0.25em] uppercase text-zinc-500 mb-5">
+            Announcement Banner
+          </p>
+          <Field label="Banner Text">
+            <input className={inp} placeholder="e.g. New arrivals — March 2025 · Free inspection on all vehicles this month"
+              value={settings.announcement_text || ""} onChange={e => setSetting("announcement_text", e.target.value)} />
+          </Field>
+          <div className="flex items-center gap-3 mt-2">
+            <input
+              type="checkbox"
+              id="annActive"
+              checked={settings.announcement_active === "true"}
+              onChange={e => setSetting("announcement_active", e.target.checked ? "true" : "false")}
+              className="accent-white"
+            />
+            <label htmlFor="annActive" className="text-xs text-zinc-500 tracking-wider uppercase cursor-pointer">
+              Show Banner on Website
+            </label>
+          </div>
+          <p className="text-zinc-600 text-xs mt-2">
+            The banner appears at the very top of the website when active. Use it for promotions, new stock alerts, or holiday notices.
+          </p>
+        </div>
+      )}
 
-            {/* ══ FAQ ═══════════════════════════════════════════ */}
-            {tab === "faq" && (
-              <div className="space-y-5">
-                <div>
-                  <p className="text-[9px] font-semibold tracking-[0.2em] uppercase text-zinc-600 mb-4">{editingFaq ? "Editing FAQ" : "Add FAQ Item"}</p>
-                  <div className="space-y-3">
-                    <Field label="Question *"><input className={inp} placeholder="How do you verify provenance?" value={faqForm.question} onChange={e => setFaqForm(f => ({ ...f, question: e.target.value }))} /></Field>
-                    <Field label="Answer *"><textarea rows={4} className={ta} value={faqForm.answer} onChange={e => setFaqForm(f => ({ ...f, answer: e.target.value }))} /></Field>
-                    <Field label="Sort Order"><input type="number" className={`${inp} w-28`} value={faqForm.sort_order} onChange={e => setFaqForm(f => ({ ...f, sort_order: e.target.value }))} /></Field>
-                  </div>
-                  <div className="flex gap-3 mt-4">
-                    <button onClick={saveFaq} disabled={faqSaving || !faqForm.question || !faqForm.answer} className={btn}>{faqSaving ? "Saving…" : editingFaq ? "Update" : "Add FAQ"}</button>
-                    {editingFaq && <button onClick={() => { setEditingFaq(null); openNewFaq(); }} className={btnGhost}>Cancel</button>}
-                  </div>
-                </div>
-                {faqs.length > 0 && (
-                  <div className="border border-white/8 overflow-hidden">
-                    {faqs.map((f, i) => (
-                      <div key={f.id} className={`flex items-start gap-4 px-4 py-3 hover:bg-white/2 ${i > 0 ? "border-t border-white/5" : ""}`}>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-white text-xs font-medium">{f.question}</p>
-                          <p className="text-zinc-600 text-xs mt-0.5 line-clamp-1">{f.answer}</p>
-                        </div>
-                        <div className="flex gap-2 shrink-0 mt-0.5">
-                          <EditBtn onClick={() => openEditFaq(f)} />
-                          <DeleteBtn onClick={() => deleteFaq(f.id)} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+      {/* ══ TAB: SEO ════════════════════════════════════════════ */}
+      {tab === "seo" && (
+        <div className="bg-[#0a0a0a] p-6 space-y-3">
+          <p className="text-[10px] font-semibold tracking-[0.25em] uppercase text-zinc-500 mb-5">
+            SEO & Search Engine Settings
+          </p>
+          <Field label="Page Title">
+            <input className={inp} placeholder="Car House Imports Ltd — Luxury Car Imports Bangladesh"
+              value={settings.seo_title || ""} onChange={e => setSetting("seo_title", e.target.value)} />
+            <p className="text-zinc-700 text-xs mt-1">Shown on browser tab and Google search. Keep under 60 characters.</p>
+          </Field>
+          <Field label="Meta Description">
+            <textarea rows={3} className={ta}
+              placeholder="Car House Imports Ltd specialises in sourcing rare, luxury and exotic vehicles for Bangladesh…"
+              value={settings.seo_description || ""} onChange={e => setSetting("seo_description", e.target.value)} />
+            <p className="text-zinc-700 text-xs mt-1">Shown in Google search results. Aim for 140–160 characters.</p>
+          </Field>
+          <Field label="Keywords">
+            <input className={inp} placeholder="luxury car import bangladesh, reconditioned cars dhaka, exotic cars"
+              value={settings.seo_keywords || ""} onChange={e => setSetting("seo_keywords", e.target.value)} />
+            <p className="text-zinc-700 text-xs mt-1">Comma-separated. Less important for Google, but used by some search engines.</p>
+          </Field>
+        </div>
+      )}
 
-            {/* ══ ABOUT ═════════════════════════════════════════ */}
-            {tab === "about" && (
-              <div className="space-y-4">
-                <Field label="Heading"><input className={inp} placeholder="Who We Are" value={settings.about_heading || ""} onChange={e => S("about_heading", e.target.value)} /></Field>
-                <Field label="Body Text"><textarea rows={6} className={ta} value={settings.about_body || ""} onChange={e => S("about_body", e.target.value)} /></Field>
-                <Field label="Section Image">
-                  <div className="flex gap-3 items-center">
-                    <input ref={aboutFileRef} type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && uploadImg(e.target.files[0], "about", (url) => { S("about_image_url", url); supabase.from("site_settings").upsert({ key: "about_image_url", value: url, updated_at: new Date().toISOString() }); }, setAboutUploading)} />
-                    <UploadBtn uploading={aboutUploading} onClick={() => aboutFileRef.current?.click()} />
-                    {settings.about_image_url && <img src={settings.about_image_url} className="h-9 w-14 object-cover border border-white/10" alt="" />}
-                    <input className={`${inp} flex-1`} placeholder="or paste URL" value={settings.about_image_url || ""} onChange={e => S("about_image_url", e.target.value)} />
-                  </div>
-                </Field>
-              </div>
-            )}
-
-            {/* ══ CONTACT ═══════════════════════════════════════ */}
-            {tab === "contact" && (
-              <div className="space-y-3">
-                {([
-                  ["Showroom Address", "showroom_address", "text", "123 Gulshan Avenue, Dhaka"],
-                  ["Phone Number", "phone", "text", "+880 1X XXXX XXXX"],
-                  ["WhatsApp Number", "whatsapp", "text", "+880 1X XXXX XXXX"],
-                  ["Email Address", "email", "email", "info@carhouseimports.com"],
-                  ["Business Hours", "business_hours", "text", "Sun–Thu 10am–7pm"],
-                ] as [string, string, string, string][]).map(([label, key, type, ph]) => (
-                  <Field key={key} label={label}><input type={type} className={inp} placeholder={ph} value={settings[key] || ""} onChange={e => S(key, e.target.value)} /></Field>
-                ))}
-              </div>
-            )}
-
-            {/* ══ SOCIAL ════════════════════════════════════════ */}
-            {tab === "social" && (
-              <div className="space-y-3">
-                {([
-                  ["Facebook", "facebook_url", "https://facebook.com/carhouseimports"],
-                  ["Instagram", "instagram_url", "https://instagram.com/carhouseimports"],
-                  ["YouTube", "youtube_url", "https://youtube.com/@carhouseimports"],
-                ] as [string, string, string][]).map(([label, key, ph]) => (
-                  <Field key={key} label={label}><input type="url" className={inp} placeholder={ph} value={settings[key] || ""} onChange={e => S(key, e.target.value)} /></Field>
-                ))}
-                <p className="text-zinc-700 text-xs pt-1">Leave blank to hide the icon on the website.</p>
-              </div>
-            )}
-
-            {/* ══ ANNOUNCEMENT ══════════════════════════════════ */}
-            {tab === "announcement" && (
-              <div className="space-y-4">
-                <Field label="Banner Text">
-                  <input className={inp} placeholder="New arrivals — March 2025" value={settings.announcement_text || ""} onChange={e => S("announcement_text", e.target.value)} />
-                </Field>
-                <div className="flex items-center gap-3">
-                  <input type="checkbox" id="annActive" checked={settings.announcement_active === "true"} onChange={e => S("announcement_active", e.target.checked ? "true" : "false")} className="accent-white" />
-                  <label htmlFor="annActive" className="text-xs text-zinc-500 uppercase tracking-wider cursor-pointer">Show banner on website</label>
-                </div>
-                <p className="text-zinc-700 text-xs">Appears at the top of every page when active.</p>
-              </div>
-            )}
-
-            {/* ══ AI CONCIERGE ══════════════════════════════════ */}
-            {tab === "ai" && (
-              <div className="space-y-4">
-                <Field label="Welcome Message">
-                  <textarea rows={3} className={ta} value={settings.ai_welcome_message || ""} onChange={e => S("ai_welcome_message", e.target.value)} />
-                </Field>
-                <Field label="System Instruction (AI persona & behaviour)">
-                  <textarea rows={8} className={ta} value={settings.ai_system_instruction || ""} onChange={e => S("ai_system_instruction", e.target.value)} />
-                  <p className="text-zinc-700 text-xs mt-1">The hidden prompt defining the AI's tone and rules. Current inventory is appended automatically.</p>
-                </Field>
-              </div>
-            )}
-
-            {/* ══ SEO ═══════════════════════════════════════════ */}
-            {tab === "seo" && (
-              <div className="space-y-3">
-                <Field label="Page Title">
-                  <input className={inp} placeholder="Car House Imports — Luxury Car Imports Bangladesh" value={settings.seo_title || ""} onChange={e => S("seo_title", e.target.value)} />
-                  <p className="text-zinc-700 text-xs mt-1">Keep under 60 characters.</p>
-                </Field>
-                <Field label="Meta Description">
-                  <textarea rows={3} className={ta} value={settings.seo_description || ""} onChange={e => S("seo_description", e.target.value)} />
-                  <p className="text-zinc-700 text-xs mt-1">Aim for 140–160 characters.</p>
-                </Field>
-                <Field label="Keywords">
-                  <input className={inp} placeholder="luxury car import bangladesh, reconditioned cars dhaka" value={settings.seo_keywords || ""} onChange={e => S("seo_keywords", e.target.value)} />
-                </Field>
-              </div>
-            )}
-
-          </div>{/* end p-6 */}
-        </div>{/* end content panel */}
-      </div>{/* end flex layout */}
-
-      {/* ── Save footer ── */}
+      {/* ── Save footer (always visible) ── */}
       <div className="flex justify-end pt-2 border-t border-white/5">
-        <button onClick={saveAll} disabled={saving}
-          className={`px-8 py-3 text-xs font-semibold tracking-[0.25em] uppercase transition-all disabled:opacity-50 ${saved ? "bg-zinc-700 text-zinc-300" : "bg-white text-black hover:bg-zinc-200"}`}>
+        <button
+          onClick={saveAll}
+          disabled={saving}
+          className={`px-8 py-3 text-xs font-semibold tracking-[0.25em] uppercase transition-all disabled:opacity-50 ${saved ? "bg-zinc-700 text-zinc-300" : "bg-white text-black hover:bg-zinc-200"}`}
+        >
           {saving ? "Saving…" : saved ? "✓ Saved to Database" : "Save All Changes"}
         </button>
       </div>
-
     </div>
   );
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 /* ══════════════════════════════════════════════════════════════
    CUSTOMS, REPORTS, SETTINGS (static UI)
