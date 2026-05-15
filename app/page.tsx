@@ -15,6 +15,8 @@ type Vehicle = {
   condition: string; mileage: number; engine_cc: number;
   transmission: string; fuel_type: string; import_date: string;
   customs_duty: number; shipping_cost: number; featured: boolean;
+  image_url: string; gallery_urls: string[];
+  show_horizontal: boolean; show_vault_feature: boolean;
 };
 type Customer = {
   id: string; name: string; phone: string; email: string;
@@ -234,8 +236,21 @@ const Inventory = () => {
     id: "", make: "", model: "", year: "", color: "", vin: "", chassis_no: "",
     origin: "", port: "", purchase_price: "", selling_price: "", engine_cc: "",
     transmission: "", fuel_type: "Petrol", condition: "New", mileage: "0",
-    customs_duty: "", shipping_cost: "", import_date: "",
+    customs_duty: "", shipping_cost: "", import_date: "", image_url: "",
   });
+  const [imgUploading, setImgUploading] = useState(false);
+  const vehicleImgRef = useRef<HTMLInputElement>(null);
+
+  const handleVehicleImageUpload = async (file: File) => {
+    setImgUploading(true);
+    const path = `vehicles/${Date.now()}.${file.name.split(".").pop()}`;
+    const { error } = await supabase.storage.from("car-images").upload(path, file, { upsert: true });
+    if (!error) {
+      const { data } = supabase.storage.from("car-images").getPublicUrl(path);
+      setForm(p => ({ ...p, image_url: data.publicUrl }));
+    }
+    setImgUploading(false);
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -266,6 +281,7 @@ const Inventory = () => {
       customs_duty: parseInt(form.customs_duty),
       shipping_cost: parseInt(form.shipping_cost),
       import_date: form.import_date, status: "Available", featured: false,
+      image_url: form.image_url,
     }]);
     setSaving(false);
     if (!error) { setShowAdd(false); load(); }
@@ -413,6 +429,31 @@ const Inventory = () => {
                 <option>New</option><option>Reconditioned</option><option>Used</option>
               </Select>
             </Field>
+            <div className="col-span-2">
+              <Field label="Cover Image">
+                <div className="flex gap-3 items-center">
+                  <input ref={vehicleImgRef} type="file" accept="image/*" className="hidden"
+                    onChange={e => e.target.files?.[0] && handleVehicleImageUpload(e.target.files[0])} />
+                  <button
+                    type="button"
+                    onClick={() => vehicleImgRef.current?.click()}
+                    disabled={imgUploading}
+                    className="border border-white/10 text-zinc-400 text-xs px-4 py-2 hover:border-white/30 hover:text-white transition-all disabled:opacity-40"
+                  >
+                    {imgUploading ? "Uploading…" : "Upload Image"}
+                  </button>
+                  {form.image_url && (
+                    <img src={form.image_url} className="h-9 w-14 object-cover border border-white/10" alt="preview" />
+                  )}
+                  {form.image_url && (
+                    <button type="button" onClick={() => setForm(p => ({ ...p, image_url: "" }))}
+                      className="text-[10px] text-red-500/60 hover:text-red-400 uppercase tracking-wider">
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </Field>
+            </div>
           </div>
           <div className="flex gap-3 justify-end mt-6 pt-6 border-t border-white/10">
             <button onClick={() => setShowAdd(false)} className="px-5 py-2.5 text-xs tracking-[0.2em] uppercase text-zinc-500 border border-white/10 hover:border-white/30">Cancel</button>
@@ -425,6 +466,7 @@ const Inventory = () => {
     </div>
   );
 };
+
 
 /* ══════════════════════════════════════════════════════════════
    CUSTOMERS
@@ -1036,8 +1078,7 @@ const Enquiries = () => {
            Heritage · AI Concierge · SEO · Announcement
 ══════════════════════════════════════════════════════════════ */
 const WebsiteCMS = () => {
-  type Tab = "hero" | "slides" | "featured" | "about" | "network" | "advisory" | "partners" | "updates" | "faq" | "contact" | "social" | "heritage" | "ai" | "seo" | "announcement";
-
+  type Tab = "hero" | "slides" | "featured" | "horizontal" | "vault" | "about" | "network" | "advisory" | "partners" | "updates" | "faq" | "contact" | "social" | "heritage" | "ai" | "seo" | "announcement";
   const [tab, setTab] = useState<Tab>("hero");
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [settings, setSettings] = useState<Record<string, string>>({});
@@ -1118,6 +1159,15 @@ const WebsiteCMS = () => {
   const toggleFeatured = async (id: string, cur: boolean) => {
     await supabase.from("vehicles").update({ featured: !cur }).eq("id", id);
     setVehicles(p => p.map(v => v.id === id ? { ...v, featured: !cur } : v));
+  };
+  const toggleHorizontal = async (id: string, cur: boolean) => {
+    await supabase.from("vehicles").update({ show_horizontal: !cur }).eq("id", id);
+    setVehicles(p => p.map(v => v.id === id ? { ...v, show_horizontal: !cur } : v));
+  };
+
+  const toggleVaultFeature = async (id: string, cur: boolean) => {
+    await supabase.from("vehicles").update({ show_vault_feature: !cur }).eq("id", id);
+    setVehicles(p => p.map(v => v.id === id ? { ...v, show_vault_feature: !cur } : v));
   };
 
   // ── image upload util ─────────────────────────────────────────
@@ -1250,9 +1300,11 @@ const WebsiteCMS = () => {
         { id: "hero", label: "Hero", icon: "▣" },
         { id: "slides", label: "Hero Slides", icon: "◫" },
         { id: "featured", label: "Featured Cars", icon: "★" },
+        { id: "horizontal", label: "Horizontal", icon: "↔" },
+        { id: "vault", label: "Vault Feature", icon: "◈" },
         { id: "network", label: "Network", icon: "◎" },
-        { id: "advisory", label: "Advisory", icon: "◈" },
-        { id: "partners", label: "Partners", icon: "◇" },
+        { id: "advisory", label: "Advisory", icon: "◇" },
+        { id: "partners", label: "Partners", icon: "⊕" },
       ]
     },
     {
@@ -1470,7 +1522,69 @@ const WebsiteCMS = () => {
                 </div>
               </div>
             )}
+            {tab === "horizontal" && (
+              <div className="space-y-4">
+                <div>
+                  <p className="text-[9px] font-semibold tracking-[0.2em] uppercase text-zinc-600 mb-1">Homepage Horizontal Scroll Section</p>
+                  <p className="text-zinc-700 text-xs mb-4">Select up to 7 cars. These appear in the horizontal scrolling section directly below the hero.</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {vehicles.map(car => (
+                    <button
+                      key={car.id}
+                      onClick={() => toggleHorizontal(car.id, car.show_horizontal)}
+                      className={`p-3 text-left border transition-all flex items-center justify-between gap-3 ${car.show_horizontal ? "border-[#c9a84c] bg-[#c9a84c]/8" : "border-white/8 hover:border-white/20"}`}
+                    >
+                      <div className="min-w-0">
+                        <p className="text-white text-xs font-medium truncate">{car.make} {car.model}</p>
+                        <p className="text-zinc-600 text-[10px]">{car.year} · {car.status}</p>
+                      </div>
+                      {car.show_horizontal && <span className="text-[#c9a84c] text-[10px] font-bold shrink-0">✓ Selected</span>}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-zinc-700 text-xs">{vehicles.filter(v => v.show_horizontal).length} / 7 selected</p>
+              </div>
+            )}
 
+            {tab === "vault" && (
+              <div className="space-y-4">
+                <div>
+                  <p className="text-[9px] font-semibold tracking-[0.2em] uppercase text-zinc-600 mb-1">Homepage Vault Feature (Sticky Scroll)</p>
+                  <p className="text-zinc-700 text-xs mb-4">Select 3–4 cars. Full-screen sticky scroll section. Requires a cover image on each car.</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {vehicles.map(car => (
+                    <button
+                      key={car.id}
+                      onClick={() => toggleVaultFeature(car.id, car.show_vault_feature)}
+                      className={`p-3 text-left border transition-all flex items-center justify-between gap-3 ${car.show_vault_feature ? "border-[#c9a84c] bg-[#c9a84c]/8" : "border-white/8 hover:border-white/20"}`}
+                    >
+                      <div className="min-w-0 flex items-center gap-3">
+                        {car.image_url ? (
+                          <img src={car.image_url} className="w-10 h-7 object-cover shrink-0 border border-white/10" alt="" />
+                        ) : (
+                          <div className="w-10 h-7 bg-white/5 border border-white/10 shrink-0 flex items-center justify-center">
+                            <span className="text-[8px] text-zinc-700">No img</span>
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-white text-xs font-medium truncate">{car.make} {car.model}</p>
+                          <p className="text-zinc-600 text-[10px]">{car.year} · {car.status}</p>
+                        </div>
+                      </div>
+                      {car.show_vault_feature && <span className="text-[#c9a84c] text-[10px] font-bold shrink-0">✓</span>}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-zinc-700 text-xs">
+                  {vehicles.filter(v => v.show_vault_feature).length} / 4 selected
+                  {vehicles.filter(v => v.show_vault_feature && !v.image_url).length > 0 && (
+                    <span className="text-yellow-600 ml-2">⚠ {vehicles.filter(v => v.show_vault_feature && !v.image_url).length} car(s) have no image</span>
+                  )}
+                </p>
+              </div>
+            )}
             {/* ══ NETWORK ═══════════════════════════════════════ */}
             {tab === "network" && (
               <div className="space-y-5">
