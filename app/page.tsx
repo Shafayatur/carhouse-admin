@@ -1078,8 +1078,7 @@ const Enquiries = () => {
            Heritage · AI Concierge · SEO · Announcement
 ══════════════════════════════════════════════════════════════ */
 const WebsiteCMS = () => {
-  type Tab = "hero" | "slides" | "featured" | "horizontal" | "vault" | "about" | "network" | "advisory" | "partners" | "updates" | "faq" | "contact" | "social" | "heritage" | "ai" | "seo" | "announcement";
-  const [tab, setTab] = useState<Tab>("hero");
+  type Tab = "hero" | "slides" | "featured" | "horizontal" | "vault" | "about" | "network" | "advisory" | "partners" | "updates" | "faq" | "videos" | "contact" | "social" | "heritage" | "ai" | "seo" | "announcement"; const [tab, setTab] = useState<Tab>("hero");
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [slides, setSlides] = useState<any[]>([]);
@@ -1312,6 +1311,7 @@ const WebsiteCMS = () => {
         { id: "updates", label: "Market Updates", icon: "⚡" },
         { id: "heritage", label: "Heritage", icon: "◷" },
         { id: "faq", label: "FAQ", icon: "?" },
+        { id: "videos", label: "Videos", icon: "▶" },
       ]
     },
     {
@@ -1725,6 +1725,45 @@ const WebsiteCMS = () => {
               </Field>
             )}
 
+            {/* ══ VIDEOS ══════════════════════════════════════ */}
+            {tab === "videos" && (
+              <div className="space-y-5">
+                <div className="border border-white/8 p-5 space-y-4">
+                  <p className="text-[9px] font-semibold tracking-[0.2em] uppercase text-zinc-600 mb-3">
+                    Video Section 1 — Homepage (below horizontal scroll)
+                  </p>
+                  <Field label="Video URL">
+                    <input className={inp} placeholder="/videos/video1.mp4" value={settings.video1_url || ""} onChange={e => S("video1_url", e.target.value)} />
+                  </Field>
+                  <Field label="Title">
+                    <input className={inp} placeholder="The Pursuit of Rarity" value={settings.video1_title || ""} onChange={e => S("video1_title", e.target.value)} />
+                  </Field>
+                  <Field label="Subtitle">
+                    <input className={inp} placeholder="Curated Discovery" value={settings.video1_subtitle || ""} onChange={e => S("video1_subtitle", e.target.value)} />
+                  </Field>
+                  <Field label="Quote">
+                    <textarea rows={2} className={ta} value={settings.video1_quote || ""} onChange={e => S("video1_quote", e.target.value)} />
+                  </Field>
+                </div>
+                <div className="border border-white/8 p-5 space-y-4">
+                  <p className="text-[9px] font-semibold tracking-[0.2em] uppercase text-zinc-600 mb-3">
+                    Video Section 2 — Homepage (below advisory section)
+                  </p>
+                  <Field label="Video URL">
+                    <input className={inp} placeholder="/videos/video2.mp4" value={settings.video2_url || ""} onChange={e => S("video2_url", e.target.value)} />
+                  </Field>
+                  <Field label="Title">
+                    <input className={inp} placeholder="Global Movement" value={settings.video2_title || ""} onChange={e => S("video2_title", e.target.value)} />
+                  </Field>
+                  <Field label="Subtitle">
+                    <input className={inp} placeholder="Logistics & Delivery" value={settings.video2_subtitle || ""} onChange={e => S("video2_subtitle", e.target.value)} />
+                  </Field>
+                  <Field label="Quote">
+                    <textarea rows={2} className={ta} value={settings.video2_quote || ""} onChange={e => S("video2_quote", e.target.value)} />
+                  </Field>
+                </div>
+              </div>
+            )}
             {/* ══ FAQ ═══════════════════════════════════════════ */}
             {tab === "faq" && (
               <div className="space-y-5">
