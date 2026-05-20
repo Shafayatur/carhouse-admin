@@ -18,6 +18,13 @@ type Vehicle = {
   body_type: string;
   image_url: string; gallery_urls: string[];
   show_horizontal: boolean; show_vault_feature: boolean;
+  engine_image_url?: string;
+  description?: string;
+  features?: Record<string, boolean>;
+  dimensions?: {
+    length: string; width: string; height: string; wheelbase: string;
+    kerb_weight: string; boot_space: string; doors: string; seats: string;
+  };
 };
 type Customer = {
   id: string; name: string; phone: string; email: string;
@@ -75,9 +82,9 @@ const Badge = ({ label }: { label: string }) => {
   );
 };
 
-const Modal = ({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) => (
+const Modal = ({ title, onClose, children, wide }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.9)" }}>
-    <div className="bg-[#111] border border-white/10 w-full max-w-2xl max-h-[88vh] overflow-y-auto">
+    <div className={`bg-[#111] border border-white/10 w-full max-h-[88vh] overflow-y-auto ${wide ? "max-w-4xl" : "max-w-2xl"}`}>
       <div className="flex items-center justify-between px-8 py-5 border-b border-white/10">
         <h2 className="text-base font-semibold text-white tracking-wide">{title}</h2>
         <button onClick={onClose} className="text-zinc-500 hover:text-white text-xl leading-none">×</button>
@@ -593,11 +600,11 @@ const Inventory = () => {
             )}
 
             {/* Features */}
-            {selected.features && Object.keys(selected.features).filter(k => selected.features[k]).length > 0 && (
+            {selected.features && Object.keys(selected.features).filter(k => selected.features![k]).length > 0 && (
               <div className="col-span-2">
                 <p className="text-[9px] tracking-[0.25em] uppercase text-zinc-600 mb-2">Features</p>
                 <div className="flex flex-wrap gap-2">
-                  {Object.keys(selected.features).filter(k => selected.features[k]).map(f => (
+                  {Object.keys(selected.features).filter(k => selected.features![k]).map(f => (
                     <span key={f} className="text-[10px] px-2 py-1 bg-white/5 border border-white/10 text-zinc-300 tracking-wider">{f}</span>
                   ))}
                 </div>
