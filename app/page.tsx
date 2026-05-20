@@ -15,6 +15,7 @@ type Vehicle = {
   condition: string; mileage: number; engine_cc: number;
   transmission: string; fuel_type: string; import_date: string;
   customs_duty: number; shipping_cost: number; featured: boolean;
+  body_type: string;
   image_url: string; gallery_urls: string[];
   show_horizontal: boolean; show_vault_feature: boolean;
 };
@@ -224,70 +225,234 @@ const Dashboard = () => {
 /* ══════════════════════════════════════════════════════════════
    INVENTORY
 ══════════════════════════════════════════════════════════════ */
+
+
+const FEATURE_LIST = [
+  "Sunroof / Moonroof",
+  "Leather Seats",
+  "Heated Seats",
+  "Cooled Seats",
+  "Apple CarPlay",
+  "Android Auto",
+  "360° Camera",
+  "Rear Camera",
+  "Parking Sensors",
+  "Blind Spot Monitor",
+  "Lane Assist",
+  "Adaptive Cruise Control",
+  "Keyless Entry",
+  "Push Start",
+  "HUD Display",
+  "Premium Audio",
+  "Wireless Charging",
+  "Power Tailgate",
+  "Third Row Seats",
+  "4WD / AWD",
+];
+
+const EMPTY_FORM = {
+  id: "", make: "", model: "", year: "", color: "", vin: "", chassis_no: "",
+  origin: "", port: "", purchase_price: "", selling_price: "", engine_cc: "",
+  transmission: "", fuel_type: "Petrol", body_type: "SUV", condition: "New",
+  mileage: "0", customs_duty: "", shipping_cost: "", import_date: "",
+  image_url: "",
+  // New fields
+  gallery_urls: [] as string[],
+  engine_image_url: "",
+  description: "",
+  features: {} as Record<string, boolean>,
+  dimensions: {
+    length: "", width: "", height: "", wheelbase: "", kerb_weight: "",
+    boot_space: "", doors: "", seats: "",
+  },
+};
+
+type FormState = typeof EMPTY_FORM;
+
+/* ── helper: upload a single file, return public URL ── */
+async function uploadImage(file: File, folder: string): Promise<string | null> {
+  const path = `${folder}/${Date.now()}-${file.name.replace(/\s/g, "_")}`;
+  const { error } = await supabase.storage
+    .from("car-images")
+    .upload(path, file, { upsert: true });
+  if (error) return null;
+  const { data } = supabase.storage.from("car-images").getPublicUrl(path);
+  return data.publicUrl;
+}
+
 const Inventory = () => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
   const [selected, setSelected] = useState<Vehicle | null>(null);
-  const [showAdd, setShowAdd] = useState(false);
+
+  // modal mode: "add" | "edit" | null
+  const [modalMode, setModalMode] = useState<"add" | "edit" | null>(null);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
-    id: "", make: "", model: "", year: "", color: "", vin: "", chassis_no: "",
-    origin: "", port: "", purchase_price: "", selling_price: "", engine_cc: "",
-    transmission: "", fuel_type: "Petrol", condition: "New", mileage: "0",
-    customs_duty: "", shipping_cost: "", import_date: "", image_url: "",
-  });
+  const [form, setForm] = useState<FormState>(EMPTY_FORM);
+
+  // uploading states
   const [imgUploading, setImgUploading] = useState(false);
+  const [galleryUploading, setGalleryUploading] = useState(false);
+  const [engineImgUploading, setEngineImgUploading] = useState(false);
+
+  // active tab inside the form modal
+  const [formTab, setFormTab] = useState<"basic" | "specs" | "media" | "features">("basic");
+
   const vehicleImgRef = useRef<HTMLInputElement>(null);
+  const galleryImgRef = useRef<HTMLInputElement>(null);
+  const engineImgRef = useRef<HTMLInputElement>(null);
 
-  const handleVehicleImageUpload = async (file: File) => {
-    setImgUploading(true);
-    const path = `vehicles/${Date.now()}.${file.name.split(".").pop()}`;
-    const { error } = await supabase.storage.from("car-images").upload(path, file, { upsert: true });
-    if (!error) {
-      const { data } = supabase.storage.from("car-images").getPublicUrl(path);
-      setForm(p => ({ ...p, image_url: data.publicUrl }));
-    }
-    setImgUploading(false);
-  };
-
+  /* ── load ── */
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from("vehicles").select("*").order("created_at", { ascending: false });
+    const { data } = await supabase
+      .from("vehicles")
+      .select("*")
+      .order("created_at", { ascending: false });
     setVehicles(data || []);
     setLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  const filtered = vehicles.filter(v =>
-    (filter === "All" || v.status === filter) &&
-    `${v.make} ${v.model} ${v.id}`.toLowerCase().includes(search.toLowerCase())
-  );
+  /* ── open add modal ── */
+  const openAdd = () => {
+    setForm(EMPTY_FORM);
+    setFormTab("basic");
+    setModalMode("add");
+  };
 
+  /* ── open edit modal ── */
+  const openEdit = (car: Vehicle) => {
+    setForm({
+      id: car.id,
+      make: car.make || "",
+      model: car.model || "",
+      year: String(car.year || ""),
+      color: car.color || "",
+      vin: car.vin || "",
+      chassis_no: car.chassis_no || "",
+      origin: car.origin || "",
+      port: car.port || "",
+      purchase_price: String(car.purchase_price || ""),
+      selling_price: String(car.selling_price || ""),
+      engine_cc: String(car.engine_cc || ""),
+      transmission: car.transmission || "",
+      fuel_type: car.fuel_type || "Petrol",
+      body_type: car.body_type || "SUV",
+      condition: car.condition || "New",
+      mileage: String(car.mileage || "0"),
+      customs_duty: String(car.customs_duty || ""),
+      shipping_cost: String(car.shipping_cost || ""),
+      import_date: car.import_date || "",
+      image_url: car.image_url || "",
+      gallery_urls: car.gallery_urls || [],
+      engine_image_url: car.engine_image_url || "",
+      description: car.description || "",
+      features: car.features || {},
+      dimensions: car.dimensions || {
+        length: "", width: "", height: "", wheelbase: "",
+        kerb_weight: "", boot_space: "", doors: "", seats: "",
+      },
+    });
+    setFormTab("basic");
+    setSelected(null);
+    setModalMode("edit");
+  };
+
+  /* ── cover image upload ── */
+  const handleCoverUpload = async (file: File) => {
+    setImgUploading(true);
+    const url = await uploadImage(file, "vehicles");
+    if (url) setForm(p => ({ ...p, image_url: url }));
+    setImgUploading(false);
+  };
+
+  /* ── gallery upload (multiple) ── */
+  const handleGalleryUpload = async (files: FileList) => {
+    setGalleryUploading(true);
+    const uploads = await Promise.all(
+      Array.from(files).map(f => uploadImage(f, "vehicles/gallery"))
+    );
+    const urls = uploads.filter(Boolean) as string[];
+    setForm(p => ({ ...p, gallery_urls: [...p.gallery_urls, ...urls] }));
+    setGalleryUploading(false);
+  };
+
+  /* ── engine image upload ── */
+  const handleEngineImgUpload = async (file: File) => {
+    setEngineImgUploading(true);
+    const url = await uploadImage(file, "vehicles/engine");
+    if (url) setForm(p => ({ ...p, engine_image_url: url }));
+    setEngineImgUploading(false);
+  };
+
+  /* ── remove gallery image ── */
+  const removeGalleryImage = (idx: number) => {
+    setForm(p => ({
+      ...p,
+      gallery_urls: p.gallery_urls.filter((_, i) => i !== idx),
+    }));
+  };
+
+  /* ── build payload ── */
+  const buildPayload = () => ({
+    make: form.make,
+    model: form.model,
+    year: parseInt(form.year) || null,
+    color: form.color,
+    vin: form.vin,
+    chassis_no: form.chassis_no,
+    origin: form.origin,
+    port: form.port,
+    purchase_price: parseInt(form.purchase_price) || null,
+    selling_price: parseInt(form.selling_price) || null,
+    engine_cc: parseInt(form.engine_cc) || null,
+    transmission: form.transmission,
+    fuel_type: form.fuel_type,
+    condition: form.condition,
+    mileage: parseInt(form.mileage) || 0,
+    customs_duty: parseInt(form.customs_duty) || null,
+    shipping_cost: parseInt(form.shipping_cost) || null,
+    import_date: form.import_date || null,
+    body_type: form.body_type,
+    image_url: form.image_url,
+    gallery_urls: form.gallery_urls,
+    engine_image_url: form.engine_image_url,
+    description: form.description,
+    features: form.features,
+    dimensions: form.dimensions,
+  });
+
+  /* ── add ── */
   const handleAdd = async () => {
     setSaving(true);
     const { error } = await supabase.from("vehicles").insert([{
       id: form.id || `INV-${Date.now()}`,
-      make: form.make, model: form.model, year: parseInt(form.year),
-      color: form.color, vin: form.vin, chassis_no: form.chassis_no,
-      origin: form.origin, port: form.port,
-      purchase_price: parseInt(form.purchase_price),
-      selling_price: parseInt(form.selling_price),
-      engine_cc: parseInt(form.engine_cc),
-      transmission: form.transmission, fuel_type: form.fuel_type,
-      condition: form.condition, mileage: parseInt(form.mileage),
-      customs_duty: parseInt(form.customs_duty),
-      shipping_cost: parseInt(form.shipping_cost),
-      import_date: form.import_date, status: "Available", featured: false,
-      image_url: form.image_url,
+      ...buildPayload(),
+      status: "Available",
+      featured: false,
     }]);
     setSaving(false);
-    if (!error) { setShowAdd(false); load(); }
+    if (!error) { setModalMode(null); load(); }
     else alert("Error: " + error.message);
   };
 
+  /* ── edit/update ── */
+  const handleUpdate = async () => {
+    setSaving(true);
+    const { error } = await supabase
+      .from("vehicles")
+      .update(buildPayload())
+      .eq("id", form.id);
+    setSaving(false);
+    if (!error) { setModalMode(null); load(); }
+    else alert("Error: " + error.message);
+  };
+
+  /* ── status & featured ── */
   const updateStatus = async (id: string, status: string) => {
     await supabase.from("vehicles").update({ status }).eq("id", id);
     load();
@@ -299,28 +464,67 @@ const Inventory = () => {
     load();
   };
 
+  /* ── feature toggle helper ── */
+  const toggleFeature = (feat: string) => {
+    setForm(p => ({
+      ...p,
+      features: { ...p.features, [feat]: !p.features[feat] },
+    }));
+  };
+
+  /* ── dimension helper ── */
+  const setDim = (key: string, val: string) => {
+    setForm(p => ({ ...p, dimensions: { ...p.dimensions, [key]: val } }));
+  };
+
+  const filtered = vehicles.filter(v =>
+    (filter === "All" || v.status === filter) &&
+    `${v.make} ${v.model} ${v.id}`.toLowerCase().includes(search.toLowerCase())
+  );
+
   if (loading) return <Spinner />;
 
+  const isEdit = modalMode === "edit";
+  const showModal = modalMode !== null;
+
+  /* ════════════════ RENDER ════════════════ */
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-light text-white tracking-wide">Inventory</h1>
           <p className="text-zinc-500 text-sm mt-1">{vehicles.length} vehicles total</p>
         </div>
-        <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 px-5 py-2.5 bg-white text-black text-xs font-semibold tracking-[0.2em] uppercase hover:bg-zinc-200 transition-colors">
+        <button
+          onClick={openAdd}
+          className="flex items-center gap-2 px-5 py-2.5 bg-white text-black text-xs font-semibold tracking-[0.2em] uppercase hover:bg-zinc-200 transition-colors"
+        >
           + Add Vehicle
         </button>
       </div>
+
+      {/* Filters */}
       <div className="flex gap-2 flex-wrap">
         <div className="flex items-center gap-3 border border-white/10 px-4 py-2 flex-1 min-w-48 bg-[#0a0a0a]">
           <span className="text-zinc-600 text-xs">⌕</span>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search vehicles…" className="bg-transparent text-sm text-white placeholder-zinc-600 outline-none w-full" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search vehicles…"
+            className="bg-transparent text-sm text-white placeholder-zinc-600 outline-none w-full"
+          />
         </div>
         {["All", "Available", "Reserved", "In Transit", "Sold"].map(f => (
-          <button key={f} onClick={() => setFilter(f)} className={`px-4 py-2 text-[10px] font-semibold tracking-[0.2em] uppercase transition-all ${filter === f ? "bg-white text-black" : "bg-[#0a0a0a] text-zinc-500 border border-white/10 hover:border-white/30"}`}>{f}</button>
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className={`px-4 py-2 text-[10px] font-semibold tracking-[0.2em] uppercase transition-all ${filter === f ? "bg-white text-black" : "bg-[#0a0a0a] text-zinc-500 border border-white/10 hover:border-white/30"}`}
+          >{f}</button>
         ))}
       </div>
+
+      {/* Table */}
       <div className="border border-white/10">
         <table className="w-full text-sm">
           <thead>
@@ -344,7 +548,16 @@ const Inventory = () => {
                 <td className="px-5 py-4 text-white font-medium">{fmt(car.selling_price)}</td>
                 <td className="px-5 py-4"><Badge label={car.status} /></td>
                 <td className="px-5 py-4">
-                  <button onClick={() => setSelected(car)} className="text-zinc-600 hover:text-white text-xs tracking-wider uppercase transition-colors">View</button>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setSelected(car)}
+                      className="text-zinc-600 hover:text-white text-xs tracking-wider uppercase transition-colors"
+                    >View</button>
+                    <button
+                      onClick={() => openEdit(car)}
+                      className="text-zinc-600 hover:text-amber-400 text-xs tracking-wider uppercase transition-colors"
+                    >Edit</button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -352,6 +565,7 @@ const Inventory = () => {
         </table>
       </div>
 
+      {/* ── View Modal ── */}
       {selected && (
         <Modal title={`${selected.make} ${selected.model}`} onClose={() => setSelected(null)}>
           <div className="grid grid-cols-2 gap-5 mb-6">
@@ -369,104 +583,364 @@ const Inventory = () => {
                 <p className="text-white text-sm">{v}</p>
               </div>
             ))}
+
+            {/* Description */}
+            {selected.description && (
+              <div className="col-span-2">
+                <p className="text-[9px] tracking-[0.25em] uppercase text-zinc-600 mb-1">Description</p>
+                <p className="text-zinc-300 text-sm leading-relaxed">{selected.description}</p>
+              </div>
+            )}
+
+            {/* Features */}
+            {selected.features && Object.keys(selected.features).filter(k => selected.features[k]).length > 0 && (
+              <div className="col-span-2">
+                <p className="text-[9px] tracking-[0.25em] uppercase text-zinc-600 mb-2">Features</p>
+                <div className="flex flex-wrap gap-2">
+                  {Object.keys(selected.features).filter(k => selected.features[k]).map(f => (
+                    <span key={f} className="text-[10px] px-2 py-1 bg-white/5 border border-white/10 text-zinc-300 tracking-wider">{f}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Gallery preview */}
+            {selected.gallery_urls?.length > 0 && (
+              <div className="col-span-2">
+                <p className="text-[9px] tracking-[0.25em] uppercase text-zinc-600 mb-2">Gallery ({selected.gallery_urls.length} images)</p>
+                <div className="flex gap-2 flex-wrap">
+                  {selected.gallery_urls.map((url, i) => (
+                    <img key={i} src={url} alt="" className="h-14 w-20 object-cover border border-white/10" />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Engine image preview */}
+            {selected.engine_image_url && (
+              <div className="col-span-2">
+                <p className="text-[9px] tracking-[0.25em] uppercase text-zinc-600 mb-2">Engine Image</p>
+                <img src={selected.engine_image_url} alt="Engine" className="h-24 w-36 object-cover border border-white/10" />
+              </div>
+            )}
+
             <div className="col-span-2">
               <p className="text-[9px] tracking-[0.25em] uppercase text-zinc-600 mb-2">Featured on Website</p>
-              <button onClick={() => toggleFeatured(selected.id, selected.featured)} className={`text-xs px-3 py-1.5 border transition-colors ${selected.featured ? "border-white text-white bg-white/10" : "border-white/20 text-zinc-500 hover:border-white/40"}`}>
+              <button
+                onClick={() => toggleFeatured(selected.id, selected.featured)}
+                className={`text-xs px-3 py-1.5 border transition-colors ${selected.featured ? "border-white text-white bg-white/10" : "border-white/20 text-zinc-500 hover:border-white/40"}`}
+              >
                 {selected.featured ? "✓ Featured — click to remove" : "Set as Featured"}
               </button>
             </div>
           </div>
-          <div className="border-t border-white/10 pt-5">
-            <p className="text-[9px] tracking-[0.25em] uppercase text-zinc-600 mb-3">Change Status</p>
-            <div className="flex gap-2 flex-wrap">
-              {["Available", "Reserved", "In Transit", "Sold"].map(s => (
-                <button key={s} onClick={() => updateStatus(selected.id, s)} className={`px-4 py-2 text-xs tracking-wider uppercase border transition-all ${selected.status === s ? "bg-white text-black border-white" : "border-white/20 text-zinc-400 hover:border-white/50 hover:text-white"}`}>{s}</button>
-              ))}
+          <div className="border-t border-white/10 pt-5 flex flex-col gap-4">
+            <div>
+              <p className="text-[9px] tracking-[0.25em] uppercase text-zinc-600 mb-3">Change Status</p>
+              <div className="flex gap-2 flex-wrap">
+                {["Available", "Reserved", "In Transit", "Sold"].map(s => (
+                  <button
+                    key={s}
+                    onClick={() => updateStatus(selected.id, s)}
+                    className={`px-4 py-2 text-xs tracking-wider uppercase border transition-all ${selected.status === s ? "bg-white text-black border-white" : "border-white/20 text-zinc-400 hover:border-white/50 hover:text-white"}`}
+                  >{s}</button>
+                ))}
+              </div>
             </div>
+            <button
+              onClick={() => openEdit(selected)}
+              className="self-start px-5 py-2.5 text-xs tracking-[0.2em] uppercase border border-amber-500/40 text-amber-400 hover:bg-amber-500/10 transition-all"
+            >
+              Edit This Vehicle
+            </button>
           </div>
         </Modal>
       )}
 
-      {showAdd && (
-        <Modal title="Add New Vehicle" onClose={() => setShowAdd(false)}>
-          <div className="grid grid-cols-2 gap-4">
-            {([
-              ["Vehicle ID", "id", "e.g. INV-009"],
-              ["Make", "make", "e.g. Toyota"],
-              ["Model", "model", "e.g. Land Cruiser"],
-              ["Year", "year", "2024"],
-              ["Color", "color", "Pearl White"],
-              ["VIN", "vin", "VIN number"],
-              ["Chassis No", "chassis_no", "CH-XXXXX"],
-              ["Origin", "origin", "Japan"],
-              ["Port", "port", "Chittagong"],
-              ["Engine CC", "engine_cc", "4608"],
-              ["Transmission", "transmission", "Automatic"],
-              ["Purchase Price", "purchase_price", "8500000"],
-              ["Selling Price", "selling_price", "11200000"],
-              ["Customs Duty", "customs_duty", "1200000"],
-              ["Shipping Cost", "shipping_cost", "450000"],
-              ["Mileage", "mileage", "0"],
-            ] as [string, string, string][]).map(([label, key, placeholder]) => (
-              <Field key={key} label={label}>
-                <Input
-                  placeholder={placeholder}
-                  value={(form as any)[key]}
-                  onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
-                />
-              </Field>
+      {/* ── Add / Edit Modal ── */}
+      {showModal && (
+        <Modal
+          title={isEdit ? `Edit — ${form.make} ${form.model}` : "Add New Vehicle"}
+          onClose={() => setModalMode(null)}
+          wide
+        >
+          {/* Tab Nav */}
+          <div className="flex gap-px mb-6 border-b border-white/10">
+            {(["basic", "specs", "media", "features"] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setFormTab(tab)}
+                className={`px-5 py-2.5 text-[10px] tracking-[0.2em] uppercase font-semibold transition-all ${formTab === tab ? "text-white border-b border-white -mb-px" : "text-zinc-600 hover:text-zinc-300"}`}
+              >
+                {tab === "basic" ? "Basic Info" : tab === "specs" ? "Specs & Dims" : tab === "media" ? "Images" : "Features"}
+              </button>
             ))}
-            <Field label="Import Date">
-              <Input type="date" value={form.import_date} onChange={e => setForm(p => ({ ...p, import_date: e.target.value }))} />
-            </Field>
-            <Field label="Fuel Type">
-              <Select value={form.fuel_type} onChange={e => setForm(p => ({ ...p, fuel_type: e.target.value }))}>
-                <option>Petrol</option><option>Diesel</option><option>Hybrid</option><option>Mild Hybrid</option><option>Electric</option>
-              </Select>
-            </Field>
-            <Field label="Condition">
-              <Select value={form.condition} onChange={e => setForm(p => ({ ...p, condition: e.target.value }))}>
-                <option>New</option><option>Reconditioned</option><option>Used</option>
-              </Select>
-            </Field>
-            <div className="col-span-2">
-              <Field label="Cover Image">
-                <div className="flex gap-3 items-center">
-                  <input ref={vehicleImgRef} type="file" accept="image/*" className="hidden"
-                    onChange={e => e.target.files?.[0] && handleVehicleImageUpload(e.target.files[0])} />
-                  <button
-                    type="button"
-                    onClick={() => vehicleImgRef.current?.click()}
-                    disabled={imgUploading}
-                    className="border border-white/10 text-zinc-400 text-xs px-4 py-2 hover:border-white/30 hover:text-white transition-all disabled:opacity-40"
-                  >
-                    {imgUploading ? "Uploading…" : "Upload Image"}
-                  </button>
-                  {form.image_url && (
-                    <img src={form.image_url} className="h-9 w-14 object-cover border border-white/10" alt="preview" />
-                  )}
-                  {form.image_url && (
-                    <button type="button" onClick={() => setForm(p => ({ ...p, image_url: "" }))}
-                      className="text-[10px] text-red-500/60 hover:text-red-400 uppercase tracking-wider">
-                      Remove
-                    </button>
-                  )}
-                </div>
+          </div>
+
+          {/* ─── TAB: Basic Info ─── */}
+          {formTab === "basic" && (
+            <div className="space-y-5">
+              <div className="grid grid-cols-2 gap-4">
+                {!isEdit && (
+                  <Field label="Vehicle ID">
+                    <Input placeholder="e.g. INV-009" value={form.id} onChange={e => setForm(p => ({ ...p, id: e.target.value }))} />
+                  </Field>
+                )}
+                <Field label="Make">
+                  <Input placeholder="e.g. Toyota" value={form.make} onChange={e => setForm(p => ({ ...p, make: e.target.value }))} />
+                </Field>
+                <Field label="Model">
+                  <Input placeholder="e.g. Land Cruiser" value={form.model} onChange={e => setForm(p => ({ ...p, model: e.target.value }))} />
+                </Field>
+                <Field label="Year">
+                  <Input placeholder="2024" value={form.year} onChange={e => setForm(p => ({ ...p, year: e.target.value }))} />
+                </Field>
+                <Field label="Color">
+                  <Input placeholder="Pearl White" value={form.color} onChange={e => setForm(p => ({ ...p, color: e.target.value }))} />
+                </Field>
+                <Field label="VIN">
+                  <Input placeholder="VIN number" value={form.vin} onChange={e => setForm(p => ({ ...p, vin: e.target.value }))} />
+                </Field>
+                <Field label="Chassis No">
+                  <Input placeholder="CH-XXXXX" value={form.chassis_no} onChange={e => setForm(p => ({ ...p, chassis_no: e.target.value }))} />
+                </Field>
+                <Field label="Origin">
+                  <Input placeholder="Japan" value={form.origin} onChange={e => setForm(p => ({ ...p, origin: e.target.value }))} />
+                </Field>
+                <Field label="Port">
+                  <Input placeholder="Chittagong" value={form.port} onChange={e => setForm(p => ({ ...p, port: e.target.value }))} />
+                </Field>
+                <Field label="Import Date">
+                  <Input type="date" value={form.import_date} onChange={e => setForm(p => ({ ...p, import_date: e.target.value }))} />
+                </Field>
+                <Field label="Purchase Price (৳)">
+                  <Input placeholder="8500000" value={form.purchase_price} onChange={e => setForm(p => ({ ...p, purchase_price: e.target.value }))} />
+                </Field>
+                <Field label="Selling Price (৳)">
+                  <Input placeholder="11200000" value={form.selling_price} onChange={e => setForm(p => ({ ...p, selling_price: e.target.value }))} />
+                </Field>
+                <Field label="Customs Duty (৳)">
+                  <Input placeholder="1200000" value={form.customs_duty} onChange={e => setForm(p => ({ ...p, customs_duty: e.target.value }))} />
+                </Field>
+                <Field label="Shipping Cost (৳)">
+                  <Input placeholder="450000" value={form.shipping_cost} onChange={e => setForm(p => ({ ...p, shipping_cost: e.target.value }))} />
+                </Field>
+                <Field label="Condition">
+                  <Select value={form.condition} onChange={e => setForm(p => ({ ...p, condition: e.target.value }))}>
+                    <option>New</option><option>Reconditioned</option><option>Used</option>
+                  </Select>
+                </Field>
+                <Field label="Body Type">
+                  <Select value={form.body_type} onChange={e => setForm(p => ({ ...p, body_type: e.target.value }))}>
+                    <option>SUV</option><option>Sedan</option><option>Coupe</option>
+                    <option>Hatchback</option><option>MPV</option><option>Pickup</option>
+                    <option>Van</option><option>Convertible</option>
+                  </Select>
+                </Field>
+              </div>
+
+              {/* Description textarea */}
+              <Field label="Vehicle Description (shown on public page)">
+                <textarea
+                  rows={6}
+                  placeholder="Describe the vehicle in detail — condition, history, unique features, why it's a great buy…"
+                  value={form.description}
+                  onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
+                  className="w-full bg-[#111] border border-white/10 text-white text-sm px-4 py-3 outline-none placeholder-zinc-600 focus:border-white/30 resize-none leading-relaxed"
+                />
+                <p className="text-[10px] text-zinc-600 mt-1">{form.description.length} chars · aim for 300–600</p>
               </Field>
             </div>
-          </div>
-          <div className="flex gap-3 justify-end mt-6 pt-6 border-t border-white/10">
-            <button onClick={() => setShowAdd(false)} className="px-5 py-2.5 text-xs tracking-[0.2em] uppercase text-zinc-500 border border-white/10 hover:border-white/30">Cancel</button>
-            <button onClick={handleAdd} disabled={saving} className="px-5 py-2.5 text-xs tracking-[0.2em] uppercase bg-white text-black font-semibold hover:bg-zinc-200 disabled:opacity-50">
-              {saving ? "Saving…" : "Add Vehicle"}
-            </button>
+          )}
+
+          {/* ─── TAB: Specs & Dims ─── */}
+          {formTab === "specs" && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Engine CC">
+                  <Input placeholder="4608" value={form.engine_cc} onChange={e => setForm(p => ({ ...p, engine_cc: e.target.value }))} />
+                </Field>
+                <Field label="Transmission">
+                  <Input placeholder="Automatic" value={form.transmission} onChange={e => setForm(p => ({ ...p, transmission: e.target.value }))} />
+                </Field>
+                <Field label="Fuel Type">
+                  <Select value={form.fuel_type} onChange={e => setForm(p => ({ ...p, fuel_type: e.target.value }))}>
+                    <option>Petrol</option><option>Diesel</option><option>Hybrid</option>
+                    <option>Mild Hybrid</option><option>Electric</option>
+                  </Select>
+                </Field>
+                <Field label="Mileage (km)">
+                  <Input placeholder="0" value={form.mileage} onChange={e => setForm(p => ({ ...p, mileage: e.target.value }))} />
+                </Field>
+              </div>
+
+              <div>
+                <p className="text-[9px] tracking-[0.25em] uppercase text-zinc-500 mb-3">Dimensions</p>
+                <div className="grid grid-cols-2 gap-4">
+                  {([
+                    ["Length (mm)", "length", "4950"],
+                    ["Width (mm)", "width", "1980"],
+                    ["Height (mm)", "height", "1925"],
+                    ["Wheelbase (mm)", "wheelbase", "2850"],
+                    ["Kerb Weight (kg)", "kerb_weight", "2450"],
+                    ["Boot Space (L)", "boot_space", "480"],
+                    ["Doors", "doors", "5"],
+                    ["Seats", "seats", "7"],
+                  ] as [string, string, string][]).map(([label, key, placeholder]) => (
+                    <Field key={key} label={label}>
+                      <Input
+                        placeholder={placeholder}
+                        value={(form.dimensions as any)[key]}
+                        onChange={e => setDim(key, e.target.value)}
+                      />
+                    </Field>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ─── TAB: Images ─── */}
+          {formTab === "media" && (
+            <div className="space-y-8">
+              {/* Cover image */}
+              <div>
+                <p className="text-[9px] tracking-[0.25em] uppercase text-zinc-500 mb-3">Cover Image</p>
+                <div className="flex gap-3 items-center">
+                  <input ref={vehicleImgRef} type="file" accept="image/*" className="hidden"
+                    onChange={e => e.target.files?.[0] && handleCoverUpload(e.target.files[0])} />
+                  <button type="button" onClick={() => vehicleImgRef.current?.click()}
+                    disabled={imgUploading}
+                    className="border border-white/10 text-zinc-400 text-xs px-4 py-2 hover:border-white/30 hover:text-white transition-all disabled:opacity-40">
+                    {imgUploading ? "Uploading…" : "Upload Cover"}
+                  </button>
+                  {form.image_url && (
+                    <>
+                      <img src={form.image_url} className="h-12 w-20 object-cover border border-white/10" alt="cover" />
+                      <button type="button" onClick={() => setForm(p => ({ ...p, image_url: "" }))}
+                        className="text-[10px] text-red-500/60 hover:text-red-400 uppercase tracking-wider">Remove</button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Gallery */}
+              <div>
+                <p className="text-[9px] tracking-[0.25em] uppercase text-zinc-500 mb-1">Gallery Images</p>
+                <p className="text-zinc-600 text-xs mb-3">Add exterior, interior, dashboard shots. Select multiple files at once.</p>
+                <input ref={galleryImgRef} type="file" accept="image/*" multiple className="hidden"
+                  onChange={e => e.target.files && handleGalleryUpload(e.target.files)} />
+                <button type="button" onClick={() => galleryImgRef.current?.click()}
+                  disabled={galleryUploading}
+                  className="border border-white/10 text-zinc-400 text-xs px-4 py-2 hover:border-white/30 hover:text-white transition-all disabled:opacity-40">
+                  {galleryUploading ? "Uploading…" : "+ Add Gallery Images"}
+                </button>
+                {form.gallery_urls.length > 0 && (
+                  <div className="flex flex-wrap gap-3 mt-4">
+                    {form.gallery_urls.map((url, i) => (
+                      <div key={i} className="relative group">
+                        <img src={url} alt="" className="h-20 w-28 object-cover border border-white/10" />
+                        <button
+                          type="button"
+                          onClick={() => removeGalleryImage(i)}
+                          className="absolute top-1 right-1 bg-black/80 text-red-400 text-[10px] px-1.5 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >✕</button>
+                        <p className="text-[9px] text-zinc-600 mt-0.5 text-center">{i + 1}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Engine image */}
+              <div>
+                <p className="text-[9px] tracking-[0.25em] uppercase text-zinc-500 mb-1">Engine Bay Image</p>
+                <p className="text-zinc-600 text-xs mb-3">Close-up shot of the engine. Shown in a dedicated section on the public page.</p>
+                <div className="flex gap-3 items-center">
+                  <input ref={engineImgRef} type="file" accept="image/*" className="hidden"
+                    onChange={e => e.target.files?.[0] && handleEngineImgUpload(e.target.files[0])} />
+                  <button type="button" onClick={() => engineImgRef.current?.click()}
+                    disabled={engineImgUploading}
+                    className="border border-white/10 text-zinc-400 text-xs px-4 py-2 hover:border-white/30 hover:text-white transition-all disabled:opacity-40">
+                    {engineImgUploading ? "Uploading…" : "Upload Engine Image"}
+                  </button>
+                  {form.engine_image_url && (
+                    <>
+                      <img src={form.engine_image_url} className="h-16 w-24 object-cover border border-white/10" alt="engine" />
+                      <button type="button" onClick={() => setForm(p => ({ ...p, engine_image_url: "" }))}
+                        className="text-[10px] text-red-500/60 hover:text-red-400 uppercase tracking-wider">Remove</button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ─── TAB: Features ─── */}
+          {formTab === "features" && (
+            <div>
+              <p className="text-zinc-500 text-xs mb-5">Toggle the features this vehicle has. These appear as a checklist on the public page.</p>
+              <div className="grid grid-cols-2 gap-2">
+                {FEATURE_LIST.map(feat => {
+                  const active = !!form.features[feat];
+                  return (
+                    <button
+                      key={feat}
+                      type="button"
+                      onClick={() => toggleFeature(feat)}
+                      className={`flex items-center gap-3 px-4 py-3 border text-left transition-all text-xs ${active ? "border-white/40 bg-white/5 text-white" : "border-white/8 text-zinc-600 hover:border-white/20 hover:text-zinc-400"}`}
+                    >
+                      <span className={`w-4 h-4 border flex items-center justify-center flex-shrink-0 transition-all ${active ? "border-white bg-white" : "border-white/20"}`}>
+                        {active && <span className="text-black text-[10px] font-bold">✓</span>}
+                      </span>
+                      {feat}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Footer buttons */}
+          <div className="flex gap-3 justify-between mt-8 pt-6 border-t border-white/10">
+            <div className="flex gap-2">
+              {(["basic", "specs", "media", "features"] as const).map((tab, i, arr) => (
+                formTab === tab && i > 0 ? (
+                  <button key="prev" onClick={() => setFormTab(arr[i - 1])}
+                    className="px-4 py-2.5 text-xs tracking-[0.2em] uppercase text-zinc-500 border border-white/10 hover:border-white/30">
+                    ← Previous
+                  </button>
+                ) : null
+              ))}
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setModalMode(null)}
+                className="px-5 py-2.5 text-xs tracking-[0.2em] uppercase text-zinc-500 border border-white/10 hover:border-white/30">
+                Cancel
+              </button>
+              {formTab !== "features" ? (
+                <button onClick={() => {
+                  const tabs = ["basic", "specs", "media", "features"] as const;
+                  const next = tabs[tabs.indexOf(formTab) + 1];
+                  if (next) setFormTab(next);
+                }} className="px-5 py-2.5 text-xs tracking-[0.2em] uppercase bg-zinc-800 text-white hover:bg-zinc-700">
+                  Next →
+                </button>
+              ) : null}
+              <button
+                onClick={isEdit ? handleUpdate : handleAdd}
+                disabled={saving}
+                className="px-5 py-2.5 text-xs tracking-[0.2em] uppercase bg-white text-black font-semibold hover:bg-zinc-200 disabled:opacity-50"
+              >
+                {saving ? "Saving…" : isEdit ? "Save Changes" : "Add Vehicle"}
+              </button>
+            </div>
           </div>
         </Modal>
       )}
     </div>
   );
 };
-
 
 /* ══════════════════════════════════════════════════════════════
    CUSTOMERS
