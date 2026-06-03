@@ -1,36 +1,60 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# carhouse-admin
 
-## Getting Started
+Private management system for CarHouse Imports Ltd — a luxury automobile import and sales business in Bangladesh. Built to handle the full operational workflow from vehicle sourcing to final sale, with all changes reflecting on the public showroom website instantly via a shared Supabase backend.
 
-First, run the development server:
+---
+
+## Modules
+
+- **Inventory** — Add, edit, and manage vehicles with multi-image gallery, engine bay image, features checklist, dimensions, and status tracking (Available / Reserved / In Transit / Sold)
+- **Shipments** — Track incoming vehicles and manage shipping status
+- **Customs** — Manage customs clearance records and documentation
+- **NBR Duty** — Bangladesh National Board of Revenue duty calculations per vehicle
+- **Cost Calculation** — Calculate total landed cost per vehicle including purchase, shipping, customs, and duty
+- **Analytics** — Sales stats, revenue overview, and inventory counts
+- **Invoices** — Generate and manage customer invoices
+- **Documents** — Store and manage vehicle-related documents
+- **Installments** — Track and manage customer installment payment plans
+- **Site Settings** — Edit the public website's hero video, tagline, headline, and CTA text without redeployment
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | Next.js, TypeScript |
+| Styling | Tailwind CSS |
+| Backend & DB | Supabase (PostgreSQL) |
+| Storage | Supabase Storage |
+| Deployment | Vercel |
+
+---
+
+## Local Development
 
 ```bash
+git clone https://github.com/Shafayatur/carhouse-admin.git
+cd carhouse-admin
+npm install
+cp .env.example .env.local
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+**.env.local**
+```
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## Deployment
 
-To learn more about Next.js, take a look at the following resources:
+Deployed on Vercel. Pushes to `main` trigger automatic deployment.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+*Built by Shafayatur Rahman*
