@@ -472,13 +472,35 @@ const Inventory = () => {
   };
 
   const deleteVehicle = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this vehicle? This action cannot be undone.")) return;
-    const { error } = await supabase.from("vehicles").delete().eq("id", id);
-    if (error) {
-      alert("Error deleting vehicle: " + error.message);
-    } else {
-      load();
-      setSelected(null);
+    if (!confirm("Are you sure you want to delete this vehicle? This will also delete all associated documents, enquiries, and sales records. This action cannot be undone.")) return;
+
+    try {
+      // 1. Delete associated vehicle documents
+      await supabase.from("vehicle_documents").delete().eq("vehicle_id", id);
+      
+      // 2. Delete associated enquiries
+      await supabase.from("enquiries").delete().eq("vehicle_id", id);
+
+      // 3. Delete associated installments
+      const { data: assocSales } = await supabase.from("sales").select("id").eq("car_id", id);
+      if (assocSales && assocSales.length > 0) {
+        const saleIds = assocSales.map(s => s.id);
+        await supabase.from("installments").delete().in("sale_id", saleIds);
+      }
+
+      // 4. Delete associated sales
+      await supabase.from("sales").delete().eq("car_id", id);
+      
+      // 5. Finally delete the vehicle itself
+      const { error } = await supabase.from("vehicles").delete().eq("id", id);
+      if (error) {
+        alert("Error deleting vehicle: " + error.message);
+      } else {
+        load();
+        setSelected(null);
+      }
+    } catch (err: any) {
+      alert("Error during cascading deletion: " + err.message);
     }
   };
 
