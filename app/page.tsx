@@ -471,6 +471,17 @@ const Inventory = () => {
     load();
   };
 
+  const deleteVehicle = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this vehicle? This action cannot be undone.")) return;
+    const { error } = await supabase.from("vehicles").delete().eq("id", id);
+    if (error) {
+      alert("Error deleting vehicle: " + error.message);
+    } else {
+      load();
+      setSelected(null);
+    }
+  };
+
   /* ── feature toggle helper ── */
   const toggleFeature = (feat: string) => {
     setForm(p => ({
@@ -564,6 +575,10 @@ const Inventory = () => {
                       onClick={() => openEdit(car)}
                       className="text-zinc-600 hover:text-amber-400 text-xs tracking-wider uppercase transition-colors"
                     >Edit</button>
+                    <button
+                      onClick={() => deleteVehicle(car.id)}
+                      className="text-zinc-600 hover:text-red-500 text-xs tracking-wider uppercase transition-colors"
+                    >Delete</button>
                   </div>
                 </td>
               </tr>
@@ -654,12 +669,20 @@ const Inventory = () => {
                 ))}
               </div>
             </div>
-            <button
-              onClick={() => openEdit(selected)}
-              className="self-start px-5 py-2.5 text-xs tracking-[0.2em] uppercase border border-amber-500/40 text-amber-400 hover:bg-amber-500/10 transition-all"
-            >
-              Edit This Vehicle
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => openEdit(selected)}
+                className="self-start px-5 py-2.5 text-xs tracking-[0.2em] uppercase border border-amber-500/40 text-amber-400 hover:bg-amber-500/10 transition-all"
+              >
+                Edit This Vehicle
+              </button>
+              <button
+                onClick={() => deleteVehicle(selected.id)}
+                className="self-start px-5 py-2.5 text-xs tracking-[0.2em] uppercase border border-red-500/40 text-red-500 hover:bg-red-500/10 transition-all"
+              >
+                Delete Vehicle
+              </button>
+            </div>
           </div>
         </Modal>
       )}
