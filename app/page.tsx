@@ -477,7 +477,7 @@ const Inventory = () => {
     try {
       // 1. Delete associated vehicle documents
       await supabase.from("vehicle_documents").delete().eq("vehicle_id", id);
-      
+
       // 2. Delete associated enquiries
       await supabase.from("enquiries").delete().eq("vehicle_id", id);
 
@@ -490,7 +490,7 @@ const Inventory = () => {
 
       // 4. Delete associated sales
       await supabase.from("sales").delete().eq("car_id", id);
-      
+
       // 5. Finally delete the vehicle itself
       const { error } = await supabase.from("vehicles").delete().eq("id", id);
       if (error) {
@@ -1526,6 +1526,7 @@ const Finance = () => {
 const Enquiries = () => {
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedMessage, setSelectedMessage] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.from("enquiries").select("*").order("created_at", { ascending: false })
@@ -1565,7 +1566,16 @@ const Enquiries = () => {
                 <td className="px-4 py-3 text-zinc-400 text-xs">{e.email}</td>
                 <td className="px-4 py-3"><Badge label={e.type} /></td>
                 <td className="px-4 py-3 text-zinc-500 text-xs font-mono">{e.vehicle_id || "—"}</td>
-                <td className="px-4 py-3 text-zinc-500 text-xs max-w-xs truncate">{e.message}</td>
+                <td className="px-4 py-3 max-w-[180px]">
+                  {e.message ? (
+                    <button
+                      onClick={() => setSelectedMessage(e.message)}
+                      className="text-left text-zinc-500 text-xs truncate block w-full hover:text-white transition-colors underline underline-offset-2 decoration-zinc-700 hover:decoration-white"
+                    >
+                      {e.message}
+                    </button>
+                  ) : <span className="text-zinc-700">—</span>}
+                </td>
                 <td className="px-4 py-3 text-zinc-600 text-xs">{new Date(e.created_at).toLocaleDateString()}</td>
                 <td className="px-4 py-3"><Badge label={e.status} /></td>
                 <td className="px-4 py-3">
@@ -1580,6 +1590,21 @@ const Enquiries = () => {
           </tbody>
         </table>
       </div>
+
+      {/* Message popup */}
+      {selectedMessage && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center px-4" onClick={() => setSelectedMessage(null)}>
+          <div className="bg-zinc-950 border border-white/10 rounded-sm w-full max-w-lg shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/8">
+              <p className="text-[9px] uppercase tracking-[0.4em] font-semibold text-zinc-500">Full Message</p>
+              <button onClick={() => setSelectedMessage(null)} className="text-zinc-600 hover:text-white transition-colors text-lg leading-none">✕</button>
+            </div>
+            <div className="px-6 py-6">
+              <p className="text-zinc-300 text-sm leading-relaxed whitespace-pre-wrap">{selectedMessage}</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
