@@ -17,7 +17,7 @@ type Vehicle = {
   customs_duty: number; shipping_cost: number; featured: boolean;
   body_type: string;
   image_url: string; gallery_urls: string[];
-  show_horizontal: boolean; show_vault_feature: boolean;
+  show_horizontal: boolean; show_vault_feature: boolean; show_new_arrival: boolean;
   engine_image_url?: string;
   description?: string;
   features?: Record<string, boolean>;
@@ -1629,7 +1629,7 @@ const Enquiries = () => {
            Heritage · AI Concierge · SEO · Announcement
 ══════════════════════════════════════════════════════════════ */
 const WebsiteCMS = () => {
-  type Tab = "hero" | "slides" | "featured" | "horizontal" | "vault" | "about" | "network" | "advisory" | "partners" | "updates" | "faq" | "videos" | "contact" | "social" | "heritage" | "ai" | "seo" | "announcement"; const [tab, setTab] = useState<Tab>("hero");
+  type Tab = "hero" | "new_arrival" | "gallery" | "categories" | "horizontal" | "vault" | "about" | "network" | "advisory" | "partners" | "updates" | "faq" | "videos" | "contact" | "social" | "heritage" | "ai" | "seo" | "announcement"; const [tab, setTab] = useState<Tab>("hero");
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [slides, setSlides] = useState<any[]>([]);
@@ -1639,6 +1639,22 @@ const WebsiteCMS = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  // categories state
+  const [categories, setCategories] = useState<any[]>([]);
+  const [catForm, setCatForm] = useState({ name: "", slug: "", description: "", image_url: "", sort_order: "0", is_active: true });
+  const [editingCat, setEditingCat] = useState<any>(null);
+  const [catSaving, setCatSaving] = useState(false);
+  const [catUploading, setCatUploading] = useState(false);
+  const catFileRef = useRef<HTMLInputElement>(null);
+
+  // gallery state
+  const [galleryImages, setGalleryImages] = useState<any[]>([]);
+  const [galleryForm, setGalleryForm] = useState({ image_url: "", alt: "", span: "1x1", sort_order: "0", is_active: true });
+  const [editingGallery, setEditingGallery] = useState<any>(null);
+  const [gallerySaving, setGallerySaving] = useState(false);
+  const [galleryUploading, setGalleryUploading] = useState(false);
+  const galleryFileRef = useRef<HTMLInputElement>(null);
 
   // slide form
   const [slideForm, setSlideForm] = useState({ title: "", subtitle: "", image_url: "", cta_text: "View Inventory", cta_link: "/inventory", sort_order: "0", is_active: true });
@@ -1682,6 +1698,8 @@ const WebsiteCMS = () => {
         supabase.from("market_updates").select("*").order("sort_order"),
         supabase.from("partners").select("*").order("sort_order"),
         supabase.from("faq_items").select("*").order("sort_order"),
+        supabase.from("vehicle_categories").select("*").order("sort_order"),
+        supabase.from("gallery_images").select("*").order("sort_order"),
       ]);
       setVehicles(v.data || []);
       const map: Record<string, string> = {};
@@ -1691,6 +1709,12 @@ const WebsiteCMS = () => {
       setUpdates(u.data || []);
       setPartners(p.data || []);
       setFaqs(f.data || []);
+      const [cats, gal] = await Promise.all([
+        supabase.from("vehicle_categories").select("*").order("sort_order"),
+        supabase.from("gallery_images").select("*").order("sort_order"),
+      ]);
+      setCategories(cats.data || []);
+      setGalleryImages(gal.data || []);
       setLoading(false);
     })();
   }, []);
@@ -1709,6 +1733,10 @@ const WebsiteCMS = () => {
   const toggleFeatured = async (id: string, cur: boolean) => {
     await supabase.from("vehicles").update({ featured: !cur }).eq("id", id);
     setVehicles(p => p.map(v => v.id === id ? { ...v, featured: !cur } : v));
+  };
+  const toggleNewArrival = async (id: string, cur: boolean) => {
+    await supabase.from("vehicles").update({ show_new_arrival: !cur }).eq("id", id);
+    setVehicles(p => p.map(v => v.id === id ? { ...v, show_new_arrival: !cur } : v));
   };
   const toggleHorizontal = async (id: string, cur: boolean) => {
     await supabase.from("vehicles").update({ show_horizontal: !cur }).eq("id", id);
@@ -1848,9 +1876,10 @@ const WebsiteCMS = () => {
     {
       label: "Homepage", items: [
         { id: "hero", label: "Hero", icon: "▣" },
-        { id: "slides", label: "Hero Slides", icon: "◫" },
-        { id: "featured", label: "Featured Cars", icon: "★" },
-        { id: "horizontal", label: "Horizontal", icon: "↔" },
+        { id: "new_arrival", label: "New Arrivals", icon: "⚡" },
+        { id: "categories", label: "Categories", icon: "⊞" },
+        { id: "gallery", label: "Gallery", icon: "◫" },
+        { id: "horizontal", label: "Horizontal Scroll", icon: "↔" },
         { id: "vault", label: "Vault Feature", icon: "◈" },
         { id: "network", label: "Network", icon: "◎" },
         { id: "advisory", label: "Advisory", icon: "◇" },
@@ -1991,86 +2020,184 @@ const WebsiteCMS = () => {
               </div>
             )}
 
-            {/* ══ HERO SLIDES ═══════════════════════════════════ */}
-            {tab === "slides" && (
-              <div className="space-y-5">
-                {/* Form */}
+            {/* ══ NEW ARRIVALS ══════════════════════════════════ */}
+            {tab === "new_arrival" && (
+              <div className="space-y-4">
                 <div>
-                  <p className="text-[10px] font-semibold tracking-[0.2em] uppercase text-zinc-600 mb-4">{editingSlide ? "Editing Slide" : "Add New Slide"}</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Field label="Title *"><input className={inp} value={slideForm.title} onChange={e => setSlideForm(f => ({ ...f, title: e.target.value }))} placeholder="Exquisite Imports, Delivered." /></Field>
-                    <Field label="Subtitle"><input className={inp} value={slideForm.subtitle} onChange={e => setSlideForm(f => ({ ...f, subtitle: e.target.value }))} /></Field>
-                    <Field label="CTA Text"><input className={inp} value={slideForm.cta_text} onChange={e => setSlideForm(f => ({ ...f, cta_text: e.target.value }))} /></Field>
-                    <Field label="CTA Link"><input className={inp} value={slideForm.cta_link} onChange={e => setSlideForm(f => ({ ...f, cta_link: e.target.value }))} /></Field>
-                    <Field label="Sort Order"><input type="number" className={inp} value={slideForm.sort_order} onChange={e => setSlideForm(f => ({ ...f, sort_order: e.target.value }))} /></Field>
-                    <Field label="Active">
-                      <div className="flex items-center gap-3 h-10">
-                        <input type="checkbox" checked={slideForm.is_active} onChange={e => setSlideForm(f => ({ ...f, is_active: e.target.checked }))} className="accent-white" />
-                        <label className="text-xs text-zinc-500 uppercase tracking-wider">Show on website</label>
+                  <p className="text-[9px] font-semibold tracking-[0.2em] uppercase text-zinc-600 mb-1">Homepage New Arrivals Section</p>
+                  <p className="text-zinc-700 text-xs mb-4">Select cars to feature as new arrivals. Layout adapts: 1 car = full width, 2 = 50/50, 3+ = 3-column grid.</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {vehicles.map(car => (
+                    <button
+                      key={car.id}
+                      onClick={() => toggleNewArrival(car.id, car.show_new_arrival)}
+                      className={`p-3 text-left border transition-all flex items-center justify-between gap-3 ${car.show_new_arrival ? "border-[#c9a84c] bg-[#c9a84c]/8" : "border-white/8 hover:border-white/20"}`}
+                    >
+                      <div className="min-w-0 flex items-center gap-3">
+                        {car.image_url ? (
+                          <img src={car.image_url} className="w-10 h-7 object-cover shrink-0 border border-white/10" alt="" />
+                        ) : (
+                          <div className="w-10 h-7 bg-white/5 border border-white/10 shrink-0 flex items-center justify-center">
+                            <span className="text-[8px] text-zinc-700">No img</span>
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-white text-xs font-medium truncate">{car.make} {car.model}</p>
+                          <p className="text-zinc-600 text-[10px]">{car.year} · {car.status} · {car.condition}</p>
+                        </div>
                       </div>
-                    </Field>
+                      {car.show_new_arrival && <span className="text-[#c9a84c] text-[10px] font-bold shrink-0">✓ Live</span>}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-zinc-700 text-xs">{vehicles.filter(v => v.show_new_arrival).length} cars selected for New Arrivals</p>
+              </div>
+            )}
+
+            {/* ══ CATEGORIES ════════════════════════════════════ */}
+            {tab === "categories" && (
+              <div className="space-y-5">
+                <div>
+                  <p className="text-[10px] font-semibold tracking-[0.2em] uppercase text-zinc-600 mb-4">{editingCat ? "Editing Category" : "Add New Category"}</p>
+                  <p className="text-zinc-700 text-xs mb-4">Categories appear on the homepage and filter inventory. The slug must match the body_type value used when adding cars (e.g. "SUV", "Sedan").</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Field label="Name *"><input className={inp} value={catForm.name} onChange={e => setCatForm(f => ({ ...f, name: e.target.value }))} placeholder="SUV" /></Field>
+                    <Field label="Slug (must match body_type) *"><input className={inp} value={catForm.slug} onChange={e => setCatForm(f => ({ ...f, slug: e.target.value }))} placeholder="SUV" /></Field>
+                    <Field label="Description"><input className={inp} value={catForm.description} onChange={e => setCatForm(f => ({ ...f, description: e.target.value }))} placeholder="Commanding presence" /></Field>
+                    <Field label="Sort Order"><input type="number" className={inp} value={catForm.sort_order} onChange={e => setCatForm(f => ({ ...f, sort_order: e.target.value }))} /></Field>
                     <div className="col-span-2">
-                      <Field label="Background Image *">
+                      <Field label="Category Image (shown on public website)">
                         <div className="flex gap-3 items-center">
-                          <input ref={slideFileRef} type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && uploadImg(e.target.files[0], "hero", (url) => setSlideForm(f => ({ ...f, image_url: url })), setSlideUploading)} />
-                          <UploadBtn uploading={slideUploading} onClick={() => slideFileRef.current?.click()} />
-                          {slideForm.image_url && <img src={slideForm.image_url} className="h-9 w-14 object-cover border border-white/10" alt="" />}
-                          <input className={`${inp} flex-1`} placeholder="or paste URL" value={slideForm.image_url} onChange={e => setSlideForm(f => ({ ...f, image_url: e.target.value }))} />
+                          <input ref={catFileRef} type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && uploadImg(e.target.files[0], "categories", (url) => setCatForm(f => ({ ...f, image_url: url })), setCatUploading)} />
+                          <UploadBtn uploading={catUploading} onClick={() => catFileRef.current?.click()} />
+                          {catForm.image_url && <img src={catForm.image_url} className="h-9 w-14 object-cover border border-white/10" alt="" />}
+                          <input className={`${inp} flex-1`} placeholder="or paste URL" value={catForm.image_url} onChange={e => setCatForm(f => ({ ...f, image_url: e.target.value }))} />
                         </div>
                       </Field>
                     </div>
+                    <Field label="Active">
+                      <div className="flex items-center gap-3 h-10">
+                        <input type="checkbox" checked={catForm.is_active} onChange={e => setCatForm(f => ({ ...f, is_active: e.target.checked }))} className="accent-white" />
+                        <label className="text-xs text-zinc-500 uppercase tracking-wider">Show on website</label>
+                      </div>
+                    </Field>
                   </div>
                   <div className="flex gap-3 mt-4">
-                    <button onClick={saveSlide} disabled={slideSaving || !slideForm.title || !slideForm.image_url} className={btn}>{slideSaving ? "Saving…" : editingSlide ? "Update Slide" : "Add Slide"}</button>
-                    {editingSlide && <button onClick={() => { setEditingSlide(null); openNewSlide(); }} className={btnGhost}>Cancel</button>}
+                    <button onClick={async () => {
+                      if (!catForm.name || !catForm.slug) return;
+                      setCatSaving(true);
+                      const payload = { name: catForm.name, slug: catForm.slug, description: catForm.description || null, image_url: catForm.image_url || null, sort_order: parseInt(catForm.sort_order) || 0, is_active: catForm.is_active };
+                      if (editingCat) await supabase.from("vehicle_categories").update(payload).eq("id", editingCat.id);
+                      else await supabase.from("vehicle_categories").insert([payload]);
+                      const { data } = await supabase.from("vehicle_categories").select("*").order("sort_order");
+                      setCategories(data || []); setEditingCat(null); setCatForm({ name: "", slug: "", description: "", image_url: "", sort_order: String(categories.length), is_active: true }); setCatSaving(false);
+                    }} disabled={catSaving || !catForm.name || !catForm.slug} className={btn}>{catSaving ? "Saving…" : editingCat ? "Update Category" : "Add Category"}</button>
+                    {editingCat && <button onClick={() => { setEditingCat(null); setCatForm({ name: "", slug: "", description: "", image_url: "", sort_order: "0", is_active: true }); }} className={btnGhost}>Cancel</button>}
                   </div>
                 </div>
-                {/* List */}
-                {slides.length > 0 && (
+                {categories.length > 0 && (
                   <div className="border border-white/8 overflow-hidden">
                     <div className="px-4 py-2.5 border-b border-white/8 bg-black/20">
-                      <p className="text-[9px] font-semibold tracking-[0.2em] uppercase text-zinc-600">{slides.length} slide{slides.length !== 1 ? "s" : ""}</p>
+                      <p className="text-[9px] font-semibold tracking-[0.2em] uppercase text-zinc-600">{categories.length} categories</p>
                     </div>
-                    {slides.map((s, i) => (
-                      <div key={s.id} className={`flex items-center gap-4 px-4 py-3 hover:bg-white/2 ${i > 0 ? "border-t border-white/5" : ""}`}>
-                        <img src={s.image_url} className="w-14 h-9 object-cover shrink-0 border border-white/10" alt="" />
+                    {categories.map((c, i) => (
+                      <div key={c.id} className={`flex items-center gap-4 px-4 py-3 hover:bg-white/2 ${i > 0 ? "border-t border-white/5" : ""}`}>
+                        {c.image_url ? <img src={c.image_url} className="w-14 h-9 object-cover shrink-0 border border-white/10" alt="" /> : <div className="w-14 h-9 bg-white/5 border border-white/10 shrink-0 flex items-center justify-center"><span className="text-[8px] text-zinc-700">No img</span></div>}
                         <div className="flex-1 min-w-0">
-                          <p className="text-white text-xs font-medium truncate">{s.title}</p>
-                          <p className="text-zinc-600 text-xs">order {s.sort_order} · {s.cta_text}</p>
+                          <p className="text-white text-xs font-medium">{c.name}</p>
+                          <p className="text-zinc-600 text-[10px]">slug: {c.slug} · order {c.sort_order}{c.description ? ` · ${c.description}` : ""}</p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          <ActiveBadge active={s.is_active} onToggle={() => toggleSlideActive(s)} />
-                          <EditBtn onClick={() => openEditSlide(s)} />
-                          <DeleteBtn onClick={() => deleteSlide(s.id)} />
+                          <ActiveBadge active={c.is_active} onToggle={async () => {
+                            await supabase.from("vehicle_categories").update({ is_active: !c.is_active }).eq("id", c.id);
+                            setCategories(p => p.map(x => x.id === c.id ? { ...x, is_active: !c.is_active } : x));
+                          }} />
+                          <EditBtn onClick={() => { setEditingCat(c); setCatForm({ name: c.name, slug: c.slug, description: c.description || "", image_url: c.image_url || "", sort_order: String(c.sort_order), is_active: c.is_active }); }} />
+                          <DeleteBtn onClick={async () => { if (!confirm("Delete category?")) return; await supabase.from("vehicle_categories").delete().eq("id", c.id); setCategories(p => p.filter(x => x.id !== c.id)); }} />
                         </div>
                       </div>
                     ))}
                   </div>
                 )}
+                <div className="border border-white/5 bg-black/20 p-4">
+                  <p className="text-[9px] font-semibold tracking-[0.2em] uppercase text-zinc-600 mb-2">Default Body Types (from vehicle form)</p>
+                  <p className="text-zinc-700 text-xs">SUV · Sedan · Coupe · Hatchback · MPV · Pickup · Van · Convertible — make sure your category slugs match these exactly.</p>
+                </div>
               </div>
             )}
 
-            {/* ══ FEATURED CARS ═════════════════════════════════ */}
-            {tab === "featured" && (
+            {/* ══ GALLERY ═══════════════════════════════════════ */}
+            {tab === "gallery" && (
               <div className="space-y-5">
-                <div className="grid grid-cols-3 gap-4">
-                  <Field label="Section Label"><input className={inp} placeholder="Curated Masterpieces" value={settings.featured_label || ""} onChange={e => S("featured_label", e.target.value)} /></Field>
-                  <Field label="Section Heading"><input className={inp} placeholder="The Modern Collection" value={settings.featured_heading || ""} onChange={e => S("featured_heading", e.target.value)} /></Field>
-                  <Field label="Button Text"><input className={inp} placeholder="View Private Inventory" value={settings.featured_btn_text || ""} onChange={e => S("featured_btn_text", e.target.value)} /></Field>
-                </div>
                 <div>
-                  <p className="text-[9px] font-semibold tracking-[0.2em] uppercase text-zinc-600 mb-3">Toggle Featured Vehicles</p>
-                  <div className="grid grid-cols-3 gap-2">
-                    {vehicles.map(car => (
-                      <button key={car.id} onClick={() => toggleFeatured(car.id, car.featured)}
-                        className={`p-3 text-left border transition-all ${car.featured ? "border-[#c9a84c] bg-[#c9a84c]/8" : "border-white/10 hover:border-white/25"}`}>
-                        <p className="text-white text-xs font-medium truncate">{car.make} {car.model}</p>
-                        <p className="text-zinc-500 text-[10px] mt-0.5">{car.year} · {car.status}</p>
-                        {car.featured && <p className="text-[#c9a84c] text-[10px] mt-1 font-semibold">✓ Featured</p>}
-                      </button>
-                    ))}
+                  <p className="text-[10px] font-semibold tracking-[0.2em] uppercase text-zinc-600 mb-2">{editingGallery ? "Editing Image" : "Add Gallery Image"}</p>
+                  <p className="text-zinc-700 text-xs mb-4">Images appear in the homepage Showroom Gallery collage. Set the span to control how much space each image takes in the 4-column grid.</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2">
+                      <Field label="Image *">
+                        <div className="flex gap-3 items-center">
+                          <input ref={galleryFileRef} type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && uploadImg(e.target.files[0], "gallery", (url) => setGalleryForm(f => ({ ...f, image_url: url })), setGalleryUploading)} />
+                          <UploadBtn uploading={galleryUploading} onClick={() => galleryFileRef.current?.click()} />
+                          {galleryForm.image_url && <img src={galleryForm.image_url} className="h-9 w-14 object-cover border border-white/10" alt="" />}
+                          <input className={`${inp} flex-1`} placeholder="or paste image URL" value={galleryForm.image_url} onChange={e => setGalleryForm(f => ({ ...f, image_url: e.target.value }))} />
+                        </div>
+                      </Field>
+                    </div>
+                    <Field label="Alt Text"><input className={inp} value={galleryForm.alt} onChange={e => setGalleryForm(f => ({ ...f, alt: e.target.value }))} placeholder="Showroom floor" /></Field>
+                    <Field label="Grid Span">
+                      <select className={inp} value={galleryForm.span} onChange={e => setGalleryForm(f => ({ ...f, span: e.target.value }))}>
+                        <option value="1x1">1×1 — Standard</option>
+                        <option value="2x1">2×1 — Wide (2 cols)</option>
+                        <option value="1x2">1×2 — Tall (2 rows)</option>
+                        <option value="2x2">2×2 — Large (2×2)</option>
+                      </select>
+                    </Field>
+                    <Field label="Sort Order"><input type="number" className={inp} value={galleryForm.sort_order} onChange={e => setGalleryForm(f => ({ ...f, sort_order: e.target.value }))} /></Field>
+                    <Field label="Active">
+                      <div className="flex items-center gap-3 h-10">
+                        <input type="checkbox" checked={galleryForm.is_active} onChange={e => setGalleryForm(f => ({ ...f, is_active: e.target.checked }))} className="accent-white" />
+                        <label className="text-xs text-zinc-500 uppercase tracking-wider">Show on website</label>
+                      </div>
+                    </Field>
+                  </div>
+                  <div className="flex gap-3 mt-4">
+                    <button onClick={async () => {
+                      if (!galleryForm.image_url) return;
+                      setGallerySaving(true);
+                      const payload = { image_url: galleryForm.image_url, alt: galleryForm.alt || null, span: galleryForm.span, sort_order: parseInt(galleryForm.sort_order) || 0, is_active: galleryForm.is_active, position: galleryImages.length + 1 };
+                      if (editingGallery) await supabase.from("gallery_images").update(payload).eq("id", editingGallery.id);
+                      else await supabase.from("gallery_images").insert([payload]);
+                      const { data } = await supabase.from("gallery_images").select("*").order("sort_order");
+                      setGalleryImages(data || []); setEditingGallery(null); setGalleryForm({ image_url: "", alt: "", span: "1x1", sort_order: String(galleryImages.length), is_active: true }); setGallerySaving(false);
+                    }} disabled={gallerySaving || !galleryForm.image_url} className={btn}>{gallerySaving ? "Saving…" : editingGallery ? "Update Image" : "Add Image"}</button>
+                    {editingGallery && <button onClick={() => { setEditingGallery(null); setGalleryForm({ image_url: "", alt: "", span: "1x1", sort_order: "0", is_active: true }); }} className={btnGhost}>Cancel</button>}
                   </div>
                 </div>
+                {galleryImages.length > 0 && (
+                  <div className="border border-white/8 overflow-hidden">
+                    <div className="px-4 py-2.5 border-b border-white/8 bg-black/20">
+                      <p className="text-[9px] font-semibold tracking-[0.2em] uppercase text-zinc-600">{galleryImages.length} image{galleryImages.length !== 1 ? "s" : ""}</p>
+                    </div>
+                    {galleryImages.map((g, i) => (
+                      <div key={g.id} className={`flex items-center gap-4 px-4 py-3 hover:bg-white/2 ${i > 0 ? "border-t border-white/5" : ""}`}>
+                        <img src={g.image_url} className="w-14 h-9 object-cover shrink-0 border border-white/10" alt="" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white text-xs font-medium truncate">{g.alt || "Untitled"}</p>
+                          <p className="text-zinc-600 text-[10px]">span: {g.span} · order {g.sort_order}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <ActiveBadge active={g.is_active} onToggle={async () => {
+                            await supabase.from("gallery_images").update({ is_active: !g.is_active }).eq("id", g.id);
+                            setGalleryImages(p => p.map(x => x.id === g.id ? { ...x, is_active: !g.is_active } : x));
+                          }} />
+                          <EditBtn onClick={() => { setEditingGallery(g); setGalleryForm({ image_url: g.image_url, alt: g.alt || "", span: g.span, sort_order: String(g.sort_order), is_active: g.is_active }); }} />
+                          <DeleteBtn onClick={async () => { if (!confirm("Delete image?")) return; await supabase.from("gallery_images").delete().eq("id", g.id); setGalleryImages(p => p.filter(x => x.id !== g.id)); }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
             {tab === "horizontal" && (
