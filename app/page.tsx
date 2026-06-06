@@ -307,6 +307,13 @@ const Inventory = () => {
   // active tab inside the form modal
   const [formTab, setFormTab] = useState<"basic" | "specs" | "media" | "features">("basic");
 
+  // body types from vehicle_categories
+  const [bodyTypes, setBodyTypes] = useState<string[]>(["SUV", "Sedan", "Coupe", "Hatchback", "MPV", "Pickup", "Van", "Convertible"]);
+  useEffect(() => {
+    supabase.from("vehicle_categories").select("name").eq("is_active", true).order("sort_order")
+      .then(({ data }) => { if (data && data.length > 0) setBodyTypes(data.map((c: any) => c.name)); });
+  }, []);
+
   const vehicleImgRef = useRef<HTMLInputElement>(null);
   const galleryImgRef = useRef<HTMLInputElement>(null);
   const engineImgRef = useRef<HTMLInputElement>(null);
@@ -784,9 +791,7 @@ const Inventory = () => {
                 </Field>
                 <Field label="Body Type">
                   <Select value={form.body_type} onChange={e => setForm(p => ({ ...p, body_type: e.target.value }))}>
-                    <option>SUV</option><option>Sedan</option><option>Coupe</option>
-                    <option>Hatchback</option><option>MPV</option><option>Pickup</option>
-                    <option>Van</option><option>Convertible</option>
+                    {bodyTypes.map(bt => <option key={bt}>{bt}</option>)}
                   </Select>
                 </Field>
               </div>
@@ -2121,8 +2126,8 @@ const WebsiteCMS = () => {
                   </div>
                 )}
                 <div className="border border-white/5 bg-black/20 p-4">
-                  <p className="text-[9px] font-semibold tracking-[0.2em] uppercase text-zinc-600 mb-2">Default Body Types (from vehicle form)</p>
-                  <p className="text-zinc-700 text-xs">SUV · Sedan · Coupe · Hatchback · MPV · Pickup · Van · Convertible — make sure your category slugs match these exactly.</p>
+                  <p className="text-[9px] font-semibold tracking-[0.2em] uppercase text-zinc-600 mb-2">How it works</p>
+                  <p className="text-zinc-700 text-xs">Categories you create here will automatically appear in the vehicle form body type dropdown and on the public website.</p>
                 </div>
               </div>
             )}
