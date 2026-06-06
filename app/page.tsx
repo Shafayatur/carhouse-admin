@@ -1634,7 +1634,7 @@ const Enquiries = () => {
            Heritage · AI Concierge · SEO · Announcement
 ══════════════════════════════════════════════════════════════ */
 const WebsiteCMS = () => {
-  type Tab = "hero" | "new_arrival" | "gallery" | "categories" | "horizontal" | "vault" | "about" | "network" | "advisory" | "partners" | "updates" | "faq" | "videos" | "contact" | "social" | "heritage" | "ai" | "seo" | "announcement"; const [tab, setTab] = useState<Tab>("hero");
+  type Tab = "hero" | "new_arrival" | "gallery" | "categories" | "horizontal" | "vault" | "network" | "advisory" | "partners" | "updates" | "faq" | "videos" | "contact" | "social" | "ai" | "seo" | "announcement"; const [tab, setTab] = useState<Tab>("hero");
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [slides, setSlides] = useState<any[]>([]);
@@ -1894,14 +1894,12 @@ const WebsiteCMS = () => {
     {
       label: "Pages", items: [
         { id: "updates", label: "Market Updates", icon: "⚡" },
-        { id: "heritage", label: "Heritage", icon: "◷" },
         { id: "faq", label: "FAQ", icon: "?" },
         { id: "videos", label: "Videos", icon: "▶" },
       ]
     },
     {
       label: "Global", items: [
-        { id: "about", label: "About", icon: "◉" },
         { id: "contact", label: "Contact", icon: "○" },
         { id: "social", label: "Social", icon: "◌" },
         { id: "announcement", label: "Banner", icon: "▤" },
@@ -2400,14 +2398,6 @@ const WebsiteCMS = () => {
               </div>
             )}
 
-            {/* ══ HERITAGE ══════════════════════════════════════ */}
-            {tab === "heritage" && (
-              <Field label="Background Video URL">
-                <input className={inp} placeholder="https://…mp4" value={settings.heritage_video_url || ""} onChange={e => S("heritage_video_url", e.target.value)} />
-                <p className="text-zinc-700 text-xs mt-1">Plays in the cinematic hero of the Heritage page.</p>
-              </Field>
-            )}
-
             {/* ══ VIDEOS ══════════════════════════════════════ */}
             {tab === "videos" && (
               <div className="space-y-5">
@@ -2430,19 +2420,11 @@ const WebsiteCMS = () => {
                 </div>
                 <div className="border border-white/8 p-5 space-y-4">
                   <p className="text-[9px] font-semibold tracking-[0.2em] uppercase text-zinc-600 mb-3">
-                    Video Section 2 — Homepage (below advisory section)
+                    Heritage Page — Cinematic Hero Video
                   </p>
                   <Field label="Video URL">
-                    <input className={inp} placeholder="/videos/video2.mp4" value={settings.video2_url || ""} onChange={e => S("video2_url", e.target.value)} />
-                  </Field>
-                  <Field label="Title">
-                    <input className={inp} placeholder="Global Movement" value={settings.video2_title || ""} onChange={e => S("video2_title", e.target.value)} />
-                  </Field>
-                  <Field label="Subtitle">
-                    <input className={inp} placeholder="Logistics & Delivery" value={settings.video2_subtitle || ""} onChange={e => S("video2_subtitle", e.target.value)} />
-                  </Field>
-                  <Field label="Quote">
-                    <textarea rows={2} className={ta} value={settings.video2_quote || ""} onChange={e => S("video2_quote", e.target.value)} />
+                    <input className={inp} placeholder="/videos/heritage.mp4" value={settings.heritage_video_url || ""} onChange={e => S("heritage_video_url", e.target.value)} />
+                    <p className="text-zinc-700 text-xs mt-1">Plays as the background video on the Heritage page hero.</p>
                   </Field>
                 </div>
               </div>
@@ -2481,34 +2463,32 @@ const WebsiteCMS = () => {
               </div>
             )}
 
-            {/* ══ ABOUT ═════════════════════════════════════════ */}
-            {tab === "about" && (
-              <div className="space-y-4">
-                <Field label="Heading"><input className={inp} placeholder="Who We Are" value={settings.about_heading || ""} onChange={e => S("about_heading", e.target.value)} /></Field>
-                <Field label="Body Text"><textarea rows={6} className={ta} value={settings.about_body || ""} onChange={e => S("about_body", e.target.value)} /></Field>
-                <Field label="Section Image">
-                  <div className="flex gap-3 items-center">
-                    <input ref={aboutFileRef} type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && uploadImg(e.target.files[0], "about", (url) => { S("about_image_url", url); supabase.from("site_settings").upsert({ key: "about_image_url", value: url, updated_at: new Date().toISOString() }); }, setAboutUploading)} />
-                    <UploadBtn uploading={aboutUploading} onClick={() => aboutFileRef.current?.click()} />
-                    {settings.about_image_url && <img src={settings.about_image_url} className="h-9 w-14 object-cover border border-white/10" alt="" />}
-                    <input className={`${inp} flex-1`} placeholder="or paste URL" value={settings.about_image_url || ""} onChange={e => S("about_image_url", e.target.value)} />
-                  </div>
-                </Field>
-              </div>
-            )}
-
             {/* ══ CONTACT ═══════════════════════════════════════ */}
             {tab === "contact" && (
-              <div className="space-y-3">
-                {([
-                  ["Showroom Address", "showroom_address", "text", "123 Gulshan Avenue, Dhaka"],
-                  ["Phone Number", "phone", "text", "+880 1X XXXX XXXX"],
-                  ["WhatsApp Number", "whatsapp", "text", "+880 1X XXXX XXXX"],
-                  ["Email Address", "email", "email", "info@carhouseimports.com"],
-                  ["Business Hours", "business_hours", "text", "Sun–Thu 10am–7pm"],
-                ] as [string, string, string, string][]).map(([label, key, type, ph]) => (
-                  <Field key={key} label={label}><input type={type} className={inp} placeholder={ph} value={settings[key] || ""} onChange={e => S(key, e.target.value)} /></Field>
-                ))}
+              <div className="space-y-6">
+                <div className="border border-white/8 p-5 space-y-3">
+                  <p className="text-[9px] font-semibold tracking-[0.2em] uppercase text-zinc-600 mb-3">Dhaka — Headquarters</p>
+                  <Field label="Address"><textarea rows={2} className={ta} placeholder="Tajmahal Road, Mohammadpur&#10;Dhaka 1207, Bangladesh" value={settings.contact_dhaka_address || ""} onChange={e => S("contact_dhaka_address", e.target.value)} /></Field>
+                  <Field label="Phone"><input className={inp} placeholder="+880 1XXX XXX XXX" value={settings.phone || ""} onChange={e => S("phone", e.target.value)} /></Field>
+                  <Field label="WhatsApp"><input className={inp} placeholder="+880 1XXX XXX XXX" value={settings.whatsapp || ""} onChange={e => S("whatsapp", e.target.value)} /></Field>
+                  <Field label="Email"><input className={inp} placeholder="dhaka@carhouse.uk" value={settings.email || ""} onChange={e => S("email", e.target.value)} /></Field>
+                  <Field label="Business Hours"><input className={inp} placeholder="Sat–Thu: 10:00 AM – 7:00 PM" value={settings.business_hours || ""} onChange={e => S("business_hours", e.target.value)} /></Field>
+                  <Field label="Google Maps Embed URL"><input className={inp} placeholder="https://www.google.com/maps/embed?..." value={settings.contact_map_embed || ""} onChange={e => S("contact_map_embed", e.target.value)} /></Field>
+                </div>
+                <div className="border border-white/8 p-5 space-y-3">
+                  <p className="text-[9px] font-semibold tracking-[0.2em] uppercase text-zinc-600 mb-3">London — European Office</p>
+                  <Field label="Address"><textarea rows={2} className={ta} placeholder="Mayfair District&#10;London, United Kingdom" value={settings.contact_london_address || ""} onChange={e => S("contact_london_address", e.target.value)} /></Field>
+                  <Field label="Phone"><input className={inp} placeholder="+44 20 XXXX XXXX" value={settings.contact_london_phone || ""} onChange={e => S("contact_london_phone", e.target.value)} /></Field>
+                  <Field label="Email"><input className={inp} placeholder="london@carhouse.uk" value={settings.contact_london_email || ""} onChange={e => S("contact_london_email", e.target.value)} /></Field>
+                  <Field label="Business Hours"><input className={inp} placeholder="Mon–Fri: 9:00 AM – 6:00 PM" value={settings.contact_london_hours || ""} onChange={e => S("contact_london_hours", e.target.value)} /></Field>
+                </div>
+                <div className="border border-white/8 p-5 space-y-3">
+                  <p className="text-[9px] font-semibold tracking-[0.2em] uppercase text-zinc-600 mb-3">Dubai — Middle East Office</p>
+                  <Field label="Address"><textarea rows={2} className={ta} placeholder="Business Bay&#10;Dubai, UAE" value={settings.contact_dubai_address || ""} onChange={e => S("contact_dubai_address", e.target.value)} /></Field>
+                  <Field label="Phone"><input className={inp} placeholder="+971 4 XXX XXXX" value={settings.contact_dubai_phone || ""} onChange={e => S("contact_dubai_phone", e.target.value)} /></Field>
+                  <Field label="Email"><input className={inp} placeholder="dubai@carhouse.uk" value={settings.contact_dubai_email || ""} onChange={e => S("contact_dubai_email", e.target.value)} /></Field>
+                  <Field label="Business Hours"><input className={inp} placeholder="Sun–Thu: 9:00 AM – 6:00 PM" value={settings.contact_dubai_hours || ""} onChange={e => S("contact_dubai_hours", e.target.value)} /></Field>
+                </div>
               </div>
             )}
 
